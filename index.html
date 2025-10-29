@@ -65,6 +65,120 @@
     .timeline .event .year{min-width:72px;color:var(--muted)}
 
     footer{margin:28px 0 80px 0;text-align:center;color:var(--muted)}
+/* small and medium screens */
+@media (max-width: 980px) {
+  body {
+    padding: 0 10px;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .intro h2 {
+    font-size: 22px;
+  }
+
+  .intro p {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .kpi .big {
+    font-size: 18px;
+  }
+
+  .avatar {
+    padding: 20px 10px;
+  }
+
+  #avatarCanvas {
+    width: 100%;
+    height: auto;
+  }
+
+  .download {
+    width: 100%;
+    text-align: center;
+  }
+
+  .grid-3 {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  nav {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  nav a {
+    padding: 6px 10px;
+    font-size: 14px;
+  }
+
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .brand {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  footer {
+    margin: 40px 0;
+    font-size: 13px;
+  }
+}
+
+/* very small screens (phones <600px) */
+@media (max-width: 600px) {
+  .container {
+    padding: 16px;
+  }
+
+  header {
+    gap: 8px;
+  }
+
+  .logo {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+  }
+
+  .brand h1 {
+    font-size: 16px;
+  }
+
+  .intro h2 {
+    font-size: 20px;
+  }
+
+  .badge {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .project {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .download {
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  #avatarCanvas {
+    border-radius: 12px;
+  }
+}
 
     /* small screens */
     @media (max-width:980px){
@@ -100,7 +214,8 @@
   <div class="container" style="position:relative;z-index:2">
     <header>
       <div class="brand">
-        <div class="logo">BT</div>
+        <img  class="logo"
+        src="https://i.pinimg.com/736x/c3/76/13/c37613cb20f7d18e4497439318e3694d.jpg" >
         <div>
           <h1>Faizan Ahmad</h1>
           <div style="font-size:12px;color:var(--muted)">Defensive Security • SOC • Threat Hunting</div>
@@ -116,7 +231,7 @@
 
     <section class="hero">
       <div class="card intro glass-tilt neon">
-        <h2>Blue Team Portfolio</h2>
+        <!-- <h2>Blue Team Portfolio</h2> -->
         <p>I'm a cybersecurity enthusiast specializing in Blue Team operations, backend infrastructure support, SOC analysis, and incident response. Currently working as Backend Support Engineer at Almuqeet Systems while enhancing detection engineering and threat intelligence skills.
           I'm a defensive security enthusiast focusing on detection engineering, threat hunting, incident response and tooling to harden systems. This portfolio showcases tools, writeups, and demos.</p>
 
@@ -155,10 +270,20 @@
         </div>
       </div>
 
-      <aside class="card avatar neon glass-tilt">
-        <canvas id="avatarCanvas" width="720" height="640"></canvas>
-        <a class="download" href="#" style="display:block;text-align:center" onclick="downloadResume(event)">Download Resume</a>
-      </aside>
+     <aside class="card avatar neon glass-tilt">
+     <img
+      id="avatarCanvas"
+      width="400"
+      height="320"
+      style="
+        border-radius: 20px;
+        mix-blend-mode: lighten;
+        opacity: 0.9;
+      "
+      src="../img.gif"
+      alt="Avatar"/>
+    </aside>
+
     </section>
 
     <section class="grid-3" style="margin-top:24px">
@@ -212,14 +337,14 @@
       </div>
     </section>
 
-    <section class="card timeline" id="timeline">
+    <section class="card timeline" id="timeline" style="margin-top:20px;">
       <h3>Experience & Timeline</h3>
       <div class="event"><div class="year">2024</div><div>Intern — SOC, Phoenix Advance Software — detection engineering</div></div>
       <div class="event"><div class="year">2023</div><div>Created BloggersSight — full-stack project & deployment</div></div>
       <div class="event"><div class="year">2022</div><div>Self-study: digital forensics, OSQuery, SIEM tuning</div></div>
     </section>
 
-    <section class="card" id="contact">
+    <section class="card" id="contact" style="margin-top:20px";>
       <h3>Contact & Connect</h3>
       <p style="color:var(--muted)">Want to collaborate on blue-team tooling or mentoring? Drop a note.</p>
       <form onsubmit="sendContact(event)">
@@ -263,24 +388,35 @@
     }
     draw();
 
-    // Avatar canvas: small procedural badge
-    const av = document.getElementById('avatarCanvas');
-    const actx = av.getContext('2d');
-    function drawAvatar(){
-      actx.clearRect(0,0,av.width,av.height);
-      const cx=av.width/2, cy=av.height/2;
-      // outer ring
-      const grd = actx.createLinearGradient(0,0,av.width,av.height);
-      grd.addColorStop(0,'#00aaff');grd.addColorStop(1,'#004d7a');
-      actx.fillStyle=grd; actx.fillRect(0,0,av.width,av.height);
-      // central shield
-      actx.beginPath(); actx.moveTo(cx-80,cy+40); actx.lineTo(cx,cy-140); actx.lineTo(cx+80,cy+40); actx.closePath();
-      actx.fillStyle='#001827'; actx.fill();
-      actx.strokeStyle='rgba(0,170,255,0.9)'; actx.lineWidth=6; actx.stroke();
-      // initials
-      actx.fillStyle='#aee8ff'; actx.font='bold 72px Inter, Arial'; actx.textAlign='center'; actx.fillText('ON',cx,cy+20);
-    }
-    drawAvatar();
+    // Avatar: skip drawing if it's an image instead of canvas
+const av = document.getElementById('avatarCanvas');
+if (av && av.tagName.toLowerCase() === 'canvas') {
+  const actx = av.getContext('2d');
+  function drawAvatar() {
+    actx.clearRect(0, 0, av.width, av.height);
+    const cx = av.width / 2, cy = av.height / 2;
+    const grd = actx.createLinearGradient(0, 0, av.width, av.height);
+    grd.addColorStop(0, '#00aaff');
+    grd.addColorStop(1, '#004d7a');
+    actx.fillStyle = grd;
+    actx.fillRect(0, 0, av.width, av.height);
+    actx.beginPath();
+    actx.moveTo(cx - 80, cy + 40);
+    actx.lineTo(cx, cy - 140);
+    actx.lineTo(cx + 80, cy + 40);
+    actx.closePath();
+    actx.fillStyle = '#001827';
+    actx.fill();
+    actx.strokeStyle = 'rgba(0,170,255,0.9)';
+    actx.lineWidth = 6;
+    actx.stroke();
+    actx.fillStyle = '#aee8ff';
+    actx.font = 'bold 72px Inter, Arial';
+    actx.textAlign = 'center';
+    actx.fillText('ON', cx, cy + 20);
+  }
+  drawAvatar();
+}
 
     // demo terminal text animation
     const term = document.getElementById('termtext');
