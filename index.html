@@ -203,8 +203,40 @@
     .fi{width:52px;height:52px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.03)}
 
   </style>
+  <style>
+#preloader {
+  position: fixed; inset:0;
+  background: radial-gradient(circle at center, #00162b, #003d6b);
+  display:flex; align-items:center; justify-content:center;
+  z-index:99999; font-family: monospace; color:#7fe0ff;
+}
+.preloader-box {
+  background: rgba(0,0,0,0.2); padding:20px; border-radius:10px;
+  width:350px; text-align:center;
+  box-shadow: 0 0 20px #00aaff55;
+}
+.terminal-header{ display:flex; gap:8px; margin-bottom:10px; }
+.dot{ width:12px; height:12px; border-radius:50%; display:inline-block; }
+.r{ background:#ff5f56 } .y{ background:#ffbd2e } .g{ background:#27c93f }
+.output{ font-size:14px; min-height:60px; line-height:1.4; white-space:pre; }
+.progress-bar-wrapper{ height:8px; background: rgba(255,255,255,0.1); border-radius:999px; margin-top:10px; overflow:hidden; }
+.progress-bar{ width:0%; height:100%; background: linear-gradient(90deg,#00cfff,#0077c2); transition: width 0.1s linear; }
+body:not(.loaded) header, body:not(.loaded) main, body:not(.loaded) footer, body:not(.loaded) section { display:none; }
+</style>
+
 </head>
 <body>
+  <div id="preloader">
+  <div class="preloader-box">
+    <div class="terminal-header">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    </div>
+    <div id="output" class="output"></div>
+    <div class="progress-bar-wrapper">
+      <div id="progress" class="progress-bar"></div>
+    </div>
+  </div>
+</div>
 
   <div style="position:fixed;inset:0;pointer-events:none;z-index:0">
     <!-- subtle matrix / network background canvas -->
@@ -458,5 +490,65 @@ if (av && av.tagName.toLowerCase() === 'canvas') {
     document.querySelectorAll('.project a').forEach(a=>a.addEventListener('click',ev=>{ev.preventDefault();alert('This would open the project demo or repository (replace with real links).')}));
 
   </script>
+  <script>
+(function(){
+  const output = document.getElementById('output');
+  const progressEl = document.getElementById('progress');
+  const preloader = document.getElementById('preloader');
+
+  const LINES = [
+    "Initializing modules...",
+    "Loading threat intel...",
+    "Starting network scan..."
+  ];
+
+  let audioCtx=null;
+  function ensureAudio(){ if(!audioCtx){ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); } }
+
+  function hackerClick(){
+    ensureAudio();
+    const ctx=audioCtx;
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.type='square';
+    osc.frequency.value = 800+Math.random()*400;
+    osc.connect(gain); gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.1,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.05+Math.random()*0.03);
+    osc.start(); osc.stop(ctx.currentTime+0.05+Math.random()*0.03);
+  }
+
+  async function typeLine(line, speed){
+    return new Promise(resolve=>{
+      let idx=0;
+      const interval = setInterval(()=>{
+        if(idx<line.length){
+          output.textContent += line[idx];
+          hackerClick();
+          idx++;
+          progressEl.style.width = Math.min(100,(output.textContent.length/100*100))+'%';
+        } else {
+          clearInterval(interval);
+          output.textContent+='\n';
+          resolve();
+        }
+      }, speed);
+    });
+  }
+
+  async function runLoader(){
+    const totalTime = 2200; // 2.2s total
+    const speed = totalTime / LINES.join('').length; // calculate typing speed per char
+    for(const line of LINES){
+      await typeLine('> '+line, speed);
+    }
+    await typeLine('> Initialization complete.', speed);
+    setTimeout(()=>{ preloader.style.display='none'; document.body.classList.add('loaded'); }, 150);
+  }
+
+  window.addEventListener('load', runLoader);
+})();
+</script>
+
 </body>
 </html>
