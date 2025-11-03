@@ -201,41 +201,161 @@
     /* quick floating icons */
     .floating-icons{position:fixed;right:14px;bottom:20px;display:flex;flex-direction:column;gap:10px}
     .fi{width:52px;height:52px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.03)}
+/* Full-screen hacker terminal */
+#terminal-splash {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background-color: #000;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 20px;
+  flex-direction: column;
+  z-index: 9999;
+  opacity: 1;
+  transition: opacity 1s ease;
+  overflow: hidden;
+}
+
+/* Terminal text */
+#terminal-text {
+  white-space: pre-wrap;
+  line-height: 1.2em;
+  font-size: 16px;
+}
+
+/* Blinking cursor */
+#terminal-text::after {
+  content: '|';
+  animation: blink 0.7s steps(1) infinite;
+  color: #00ff00;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+:root {
+  --bg:#071029;
+  --accent:#00aaff;
+  --muted:#6b7a8a;
+  --card:#0b1a2b;
+  --glass: rgba(255,255,255,0.04);
+  --glass-2: rgba(255,255,255,0.02);
+}
+
+* { box-sizing:border-box; }
+
+html, body {
+  height:100%;
+  background:linear-gradient(180deg,var(--bg),#020612);
+  font-family:Inter,system-ui,Arial;
+  color:#dfefff;
+  margin:0;
+}
+
+a { color:var(--accent); text-decoration:none; }
+
+/* === GRID LAYOUT === */
+.grid-3 {
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  padding: 0 24px;
+}
+
+/* === CARD BASE === */
+.card {
+  background: var(--glass);
+  border: 1px solid var(--glass-2);
+  border-radius: 12px;
+  padding: 1.2rem;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+  transition: transform .22s ease, box-shadow .22s ease;
+  display: flex;
+  flex-direction: column;
+  height: 320px; /* Fixed height */
+  overflow: hidden;
+}
+
+.glass-tilt:hover {
+  transform: translateY(-6px) rotateX(4deg);
+  box-shadow: 0 18px 40px rgba(0,170,255,0.06);
+}
+
+.card h3 {
+  margin-bottom: 0.8rem;
+}
+
+/* === SCROLLABLE INNER === */
+.scroll-inner {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+}
+
+.scroll-inner::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scroll-inner::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 4px;
+}
+
+/* === TOOLS LIST === */
+.tools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tool {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+/* === PROJECTS === */
+.project {
+  background: var(--glass-2);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* === BADGES === */
+.badge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
 
   </style>
-  <style>
-#preloader {
-  position: fixed; inset:0;
-  background: radial-gradient(circle at center, #00162b, #003d6b);
-  display:flex; align-items:center; justify-content:center;
-  z-index:99999; font-family: monospace; color:#7fe0ff;
-}
-.preloader-box {
-  background: rgba(0,0,0,0.2); padding:20px; border-radius:10px;
-  width:350px; text-align:center;
-  box-shadow: 0 0 20px #00aaff55;
-}
-.terminal-header{ display:flex; gap:8px; margin-bottom:10px; }
-.dot{ width:12px; height:12px; border-radius:50%; display:inline-block; }
-.r{ background:#ff5f56 } .y{ background:#ffbd2e } .g{ background:#27c93f }
-.output{ font-size:14px; min-height:60px; line-height:1.4; white-space:pre; }
-.progress-bar-wrapper{ height:8px; background: rgba(255,255,255,0.1); border-radius:999px; margin-top:10px; overflow:hidden; }
-.progress-bar{ width:0%; height:100%; background: linear-gradient(90deg,#00cfff,#0077c2); transition: width 0.1s linear; }
-body:not(.loaded) header, body:not(.loaded) main, body:not(.loaded) footer, body:not(.loaded) section { display:none; }
-</style>
-
 </head>
 <body>
-  <div id="preloader">
-  <div class="preloader-box">
-    <div class="terminal-header">
-      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
-    </div>
-    <div id="output" class="output"></div>
-    <div class="progress-bar-wrapper">
-      <div id="progress" class="progress-bar"></div>
-    </div>
-  </div>
+<!-- Hacker-style Terminal Splash -->
+<div id="terminal-splash">
+  <pre id="terminal-text"></pre>
 </div>
 
   <div style="position:fixed;inset:0;pointer-events:none;z-index:0">
@@ -318,56 +438,71 @@ body:not(.loaded) header, body:not(.loaded) main, body:not(.loaded) footer, body
 
     </section>
 
-    <section class="grid-3" style="margin-top:24px">
-      <div class="card tools" id="tools">
-        <h3>Tools & Stack</h3>
-        <div class="tools-list">
-          <div class="tool"><div class="dot"></div><div>ELK / Elastic SIEM</div></div>
-          <div class="tool"><div class="dot"></div><div>Splunk</div></div>
-          <div class="tool"><div class="dot"></div><div>Velociraptor</div></div>
-          <div class="tool"><div class="dot"></div><div>OSQuery</div></div>
-          <div class="tool"><div class="dot"></div><div>Wazuh</div></div>
-          <div class="tool"><div class="dot"></div><div>Suricata</div></div>
-          <div class="tool"><div class="dot"></div><div>Python / Golang</div></div>
-        </div>
-      </div>
+<section class="grid-3" style="margin-top:24px">
 
-      <div class="card projects" id="projects">
-        <h3>Selected Projects</h3>
-        <div class="project">
-          <div>
-            <div style="font-weight:600">Detection Pack — Windows Lateral Movement</div>
-            <div style="font-size:12px;color:var(--muted)">YARA & Sigma rules + Hunting notebook</div>
-          </div>
-          <div><a href="#">View</a></div>
-        </div>
-        <div class="project">
-          <div>
-            <div style="font-weight:600">OpenSOC Dashboard</div>
-            <div style="font-size:12px;color:var(--muted)">Custom visualizations & playbooks</div>
-          </div>
-          <div><a href="#">Demo</a></div>
-        </div>
-        <div class="project">
-          <div>
-            <div style="font-weight:600">Endpoint Forensics Toolkit</div>
-            <div style="font-size:12px;color:var(--muted)">Automation for triage & collection</div>
-          </div>
-          <div><a href="#">Repo</a></div>
-        </div>
+  <!-- TOOLS & STACK -->
+  <div class="card tools" id="tools">
+    <h3>Tools & Stack</h3>
+    <div class="scroll-inner">
+      <div class="tools-list">
+        <div class="tool"><div class="dot"></div><div>ELK / Elastic SIEM</div></div>
+        <div class="tool"><div class="dot"></div><div>Splunk</div></div>
+        <div class="tool"><div class="dot"></div><div>Velociraptor</div></div>
+        <div class="tool"><div class="dot"></div><div>OSQuery</div></div>
+        <div class="tool"><div class="dot"></div><div>Wazuh</div></div>
+        <div class="tool"><div class="dot"></div><div>Suricata</div></div>
+        <div class="tool"><div class="dot"></div><div>Python / Golang</div></div>
+        <!-- repeat as needed -->
       </div>
+    </div>
+  </div>
 
-      <div class="card glass-tilt">
-        <h3>Quick Notes</h3>
-        <p style="color:var(--muted);margin:0 0 10px">I write detection rules, build dashboards, and automate triage. I enjoy red vs blue exercises and share writeups.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <div class="badge">Writeups</div>
-          <div class="badge">Labs</div>
-          <div class="badge">Tools</div>
-          <div class="badge">CTFs</div>
+  <!-- PROJECTS -->
+  <div class="card projects" id="projects">
+    <h3>Selected Projects</h3>
+    <div class="scroll-inner">
+      <div class="project">
+        <div>
+          <div style="font-weight:600">Detection Pack — Windows Lateral Movement</div>
+          <div style="font-size:12px;color:var(--muted)">YARA & Sigma rules + Hunting notebook</div>
         </div>
+        <div><a href="#">View</a></div>
       </div>
-    </section>
+      <div class="project">
+        <div>
+          <div style="font-weight:600">OpenSOC Dashboard</div>
+          <div style="font-size:12px;color:var(--muted)">Custom visualizations & playbooks</div>
+        </div>
+        <div><a href="#">Demo</a></div>
+      </div>
+      <div class="project">
+        <div>
+          <div style="font-weight:600">Endpoint Forensics Toolkit</div>
+          <div style="font-size:12px;color:var(--muted)">Automation for triage & collection</div>
+        </div>
+        <div><a href="#">Repo</a></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK NOTES -->
+  <div class="card glass-tilt">
+    <h3>Quick Notes</h3>
+    <div class="scroll-inner">
+      <p style="color:var(--muted);margin:0 0 10px">
+        I write detection rules, build dashboards, and automate triage. 
+        I enjoy red vs blue exercises and share writeups.
+      </p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="badge">Writeups</div>
+        <div class="badge">Labs</div>
+        <div class="badge">Tools</div>
+        <div class="badge">CTFs</div>
+      </div>
+    </div>
+  </div>
+
+</section>
 
     <section class="card timeline" id="timeline" style="margin-top:20px;">
       <h3>Experience & Timeline</h3>
@@ -488,67 +623,78 @@ if (av && av.tagName.toLowerCase() === 'canvas') {
 
     // small UX: clicking project links opens placeholder modal
     document.querySelectorAll('.project a').forEach(a=>a.addEventListener('click',ev=>{ev.preventDefault();alert('This would open the project demo or repository (replace with real links).')}));
+const messages = [
+  "[SYSTEM] Initializing...",
+  "[SYSTEM] Loading security modules...",
+  "[SYSTEM] Starting services...",
+  "[SYSTEM] Finalizing..."
+];
+
+const terminalText = document.getElementById("terminal-text");
+const splash = document.getElementById("terminal-splash");
+
+// Web Audio context for JS-generated sounds
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// Typing sound function
+function playTypingSound() {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(800 + Math.random() * 200, audioCtx.currentTime);
+  gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.05);
+}
+
+// Final system ready sound
+function playFinalSound() {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+  gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.frequency.exponentialRampToValueAtTime(2000, audioCtx.currentTime + 0.5);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+  osc.stop(audioCtx.currentTime + 0.5);
+}
+
+let msgIndex = 0;
+let charIndex = 0;
+
+// Hacker-style typing with random delays
+function typeNextChar() {
+  if (msgIndex >= messages.length) return;
+
+  const currentMessage = messages[msgIndex];
+  if (charIndex < currentMessage.length) {
+    terminalText.textContent += currentMessage[charIndex];
+    playTypingSound();
+    charIndex++;
+    setTimeout(typeNextChar, 50 + Math.random() * 70);
+  } else {
+    terminalText.textContent += "\n";
+    charIndex = 0;
+    msgIndex++;
+    setTimeout(typeNextChar, 200 + Math.random() * 100);
+  }
+}
+
+// Start typing on load
+window.onload = () => {
+  typeNextChar();
+
+  // Automatically fade out splash after 2.5s minimum
+  setTimeout(() => {
+    playFinalSound();
+    splash.style.opacity = 0;
+    setTimeout(() => splash.style.display = "none", 1000);
+  }, 2500);
+};
 
   </script>
-  <script>
-(function(){
-  const output = document.getElementById('output');
-  const progressEl = document.getElementById('progress');
-  const preloader = document.getElementById('preloader');
-
-  const LINES = [
-    "Initializing modules...",
-    "Loading threat intel...",
-    "Starting network scan..."
-  ];
-
-  let audioCtx=null;
-  function ensureAudio(){ if(!audioCtx){ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); } }
-
-  function hackerClick(){
-    ensureAudio();
-    const ctx=audioCtx;
-    const osc=ctx.createOscillator();
-    const gain=ctx.createGain();
-    osc.type='square';
-    osc.frequency.value = 800+Math.random()*400;
-    osc.connect(gain); gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.1,ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.05+Math.random()*0.03);
-    osc.start(); osc.stop(ctx.currentTime+0.05+Math.random()*0.03);
-  }
-
-  async function typeLine(line, speed){
-    return new Promise(resolve=>{
-      let idx=0;
-      const interval = setInterval(()=>{
-        if(idx<line.length){
-          output.textContent += line[idx];
-          hackerClick();
-          idx++;
-          progressEl.style.width = Math.min(100,(output.textContent.length/100*100))+'%';
-        } else {
-          clearInterval(interval);
-          output.textContent+='\n';
-          resolve();
-        }
-      }, speed);
-    });
-  }
-
-  async function runLoader(){
-    const totalTime = 2200; // 2.2s total
-    const speed = totalTime / LINES.join('').length; // calculate typing speed per char
-    for(const line of LINES){
-      await typeLine('> '+line, speed);
-    }
-    await typeLine('> Initialization complete.', speed);
-    setTimeout(()=>{ preloader.style.display='none'; document.body.classList.add('loaded'); }, 150);
-  }
-
-  window.addEventListener('load', runLoader);
-})();
-</script>
-
 </body>
 </html>
