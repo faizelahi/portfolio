@@ -8,6 +8,8 @@
 
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 
   <style>
     :root{
@@ -478,6 +480,61 @@
   }
 }
 
+/* POsts section New  
+Custom Css */
+
+/* Minimal scroll for My Posts */
+#quick-notes {
+  height: 360px; /* fixed card height */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* hide outside overflow */
+}
+
+/* Keep title fixed at top */
+#quick-notes h3 {
+  margin-bottom: 10px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Make only the post list scrollable */
+#quick-notes .notes-list {
+  flex: 1;
+  overflow-y: auto; /* enables scroll */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 6px; /* spacing for scrollbar */
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+/* Optional light scrollbar styling */
+#quick-notes .notes-list::-webkit-scrollbar {
+  width: 6px;
+}
+#quick-notes .notes-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+#quick-notes .notes-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Keep each post tidy */
+#quick-notes .notes-list li {
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+#quick-notes .notes-list li:hover {
+  background: rgba(0, 170, 255, 0.08);
+}
+
 
 
   </style>
@@ -639,8 +696,6 @@
 </div>
 
 
-
-
     </section>
 
     <section class="card timeline" id="timeline" style="margin-top:20px;">
@@ -663,7 +718,7 @@
       </form>
     </section>
 
-    <footer>Built with ❤️ — Faiz Elahi</footer>
+    <footer> </footer>
   </div>
 
   <div class="floating-icons">
@@ -837,166 +892,587 @@ window.onload = () => {
 // Get modal elements
 // Get modal elements
 // ===== SELECTORS =====
-const modal = document.getElementById('note-modal');
-const modalText = document.getElementById('modal-text');
-const closeBtn = document.querySelector('.terminal-modal .close');
-const listContainer = document.querySelector('.notes-list');
-const terminalInput = document.querySelector('.terminal-input');
-const header = document.querySelector('.terminal-header');
-const resizeHandle = document.querySelector('.resize-handle');
-const fullscreenBtn = document.querySelector('.terminal-controls .fullscreen-btn');
+/* ==========================================================================
+   Blue Team Portfolio — Posts Terminal (Supabase powered)
+   Features:
+   - Fetch posts from Supabase (public.posts)
+   - Render list into .notes-list
+   - Open clicked post in terminal modal (typewriter effect)
+   - Load/insert comments (public.comments) with RLS friendly policies
+   - Realtime: new posts and new comments auto-appear
+   - Search, sort, client cache, retry/exponential backoff
+   - Offline queue for comments (sync when online)
+   - Keyboard shortcuts, ARIA live regions, toasts
+   - Defensive coding, sanitization, small utilities
+   ========================================================================== */
 
-let posts = [
-  { title: "Detection Rules Writeup", content: "I write detection rules, build dashboards, and automate triage. I enjoy red vs blue exercises and share writeups." },
-  { title: "Lab Exercises", content: "Labs I completed with step-by-step documentation and insights." },
-  { title: "Tools & Automation", content: "Tools and scripts I developed for automation and monitoring." },
-  { title: "CTF Challenges", content: "CTFs and challenges I solved for practice." }
-];
+/* ====== 🔌 SUPABASE CONFIG ====== */
+const SUPABASE_URL = "https://mfeofsburcwgqftyowtm.supabase.co";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mZW9mc2J1cmN3Z3FmdHlvd3RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNjEyOTcsImV4cCI6MjA3NzgzNzI5N30.kd-RweKyDiE1ED4Rq8DcMADDM15_Bsd2PjLZxw5g2D0";
 
-let currentIndex = 0;
-let typingSpeed = 15;
+if (!window.supabase) {
+  console.error("Supabase JS SDK not found. Include @supabase/supabase-js@2 before this file.");
+}
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false },
+  global: {
+    headers: { "x-client-info": "blue-team-portfolio/terminal" },
+  },
+});
+
+/* ====== 🎯 DOM SELECTORS ====== */
+const modal = document.getElementById("note-modal");
+const modalText = document.getElementById("modal-text");
+const closeBtn = document.querySelector(".terminal-modal .close");
+const listContainer = document.querySelector(".notes-list");
+const terminalInput = document.querySelector(".terminal-input");
+const header = document.querySelector(".terminal-header");
+const resizeHandle = document.querySelector(".resize-handle");
+const fullscreenBtn = document.querySelector(".terminal-controls .fullscreen-btn");
+
+/* Optional: add a tiny toolbar above the list for search/sort if not in HTML */
+let controls = document.querySelector("#notes-controls");
+if (!controls && listContainer) {
+  controls = document.createElement("div");
+  controls.id = "notes-controls";
+  controls.style = "display:flex;gap:8px;align-items:center;margin:8px 0 10px 0;flex-wrap:wrap";
+  const search = Object.assign(document.createElement("input"), {
+    id: "notes-search",
+    placeholder: "Search posts…",
+  });
+  search.style = "flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#cfe9ff";
+  const sort = Object.assign(document.createElement("select"), { id: "notes-sort" });
+  sort.style = "padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#cfe9ff";
+  ["Newest","Oldest","Title A→Z","Title Z→A"].forEach((t,i)=>{
+    const o=document.createElement("option");
+    o.value=["newest","oldest","title_asc","title_desc"][i]; o.textContent=t; sort.appendChild(o);
+  });
+  const status = Object.assign(document.createElement("div"), { id:"notes-status" });
+  status.className = "tiny";
+  status.style = "color:#9bb6cc";
+  controls.appendChild(search); controls.appendChild(sort); controls.appendChild(status);
+  listContainer.parentNode.insertBefore(controls, listContainer);
+}
+
+/* ====== 🧰 UTILITIES ====== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function escapeHtml(s) {
+  return (s ?? "").toString().replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function formatDate(dt) {
+  try { return new Date(dt).toLocaleString(); } catch { return ""; }
+}
+
+function backoffDelay(attempt) {
+  // 200ms, 400ms, 800ms, up to ~3.2s + jitter
+  const base = 200 * Math.pow(2, Math.min(5, attempt));
+  return base + Math.floor(Math.random() * 100);
+}
+
+/* Toasts (non-intrusive alerts) */
+let toastDiv = $("#toast");
+if (!toastDiv) {
+  toastDiv = document.createElement("div");
+  toastDiv.id = "toast";
+  toastDiv.className = "toast";
+  toastDiv.style.cssText = `
+    position:fixed;right:16px;bottom:16px;background:#001522;
+    border:1px solid rgba(255,255,255,.08);padding:10px 14px;border-radius:10px;
+    color:#bfe9ff;box-shadow:0 8px 22px rgba(0,0,0,.35);opacity:0;transform:translateY(10px);
+    transition:.25s;z-index:1200;font-size:13px;max-width:75vw;line-height:1.4;
+  `;
+  document.body.appendChild(toastDiv);
+}
+function toast(msg, ms = 1800) {
+  toastDiv.textContent = msg;
+  toastDiv.style.opacity = "1";
+  toastDiv.style.transform = "translateY(0)";
+  clearTimeout(toastDiv._t);
+  toastDiv._t = setTimeout(() => {
+    toastDiv.style.opacity = "0";
+    toastDiv.style.transform = "translateY(10px)";
+  }, ms);
+}
+
+/* ARIA live region (for screen readers) */
+let live = $("#aria-live");
+if (!live) {
+  live = document.createElement("div");
+  live.id = "aria-live";
+  live.setAttribute("role", "status");
+  live.setAttribute("aria-live", "polite");
+  live.style.cssText = "position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;";
+  document.body.appendChild(live);
+}
+function announce(msg) { live.textContent = msg; }
+
+/* ====== 🧠 STATE ====== */
+let POSTS = [];              // fetched posts
+let COMMENTS_CACHE = new Map();// postId -> comments[]
+let CURRENT_POST = null;     // active post object in modal
 let isFullscreen = false;
 let isDragging = false;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
+let typingSpeed = 18;
+let isLoadingPosts = false;
 
-// ===== RENDER POSTS LIST =====
+/* ====== 💾 CLIENT CACHE (localStorage) ====== */
+const CACHE_KEY = "btp_posts_cache_v1";
+const COMMENT_QUEUE_KEY = "btp_comment_queue_v1"; // for offline queue
+
+function cachePosts(posts) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), posts }));
+  } catch {}
+}
+function readCachedPosts(maxAgeMs = 60_000) {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { t, posts } = JSON.parse(raw);
+    if (Date.now() - t > maxAgeMs) return null;
+    return posts;
+  } catch { return null; }
+}
+
+/* ====== 📡 FETCH POSTS ====== */
+async function fetchPosts(options = { useCache: true }) {
+  if (isLoadingPosts) return;
+  isLoadingPosts = true;
+
+  const status = $("#notes-status");
+  status && (status.textContent = "Connecting to backend…");
+
+  // Prefer fresh posts, fallback to cache quickly for UX.
+  const cache = options.useCache && readCachedPosts();
+  if (cache && cache.length && listContainer) {
+    POSTS = cache;
+    renderPostsList();
+    status && (status.textContent = `Loaded ${POSTS.length} posts (cached)`);
+  }
+
+  // fresh fetch with retries
+  let attempt = 0;
+  while (attempt < 5) {
+    try {
+      const { data, error } = await sb
+        .from("posts")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      POSTS = data || [];
+      renderPostsList();
+      cachePosts(POSTS);
+      status && (status.textContent = `Loaded ${POSTS.length} posts`);
+      announce("Posts updated");
+      break;
+    } catch (err) {
+      attempt++;
+      console.error("fetchPosts error:", err?.message || err);
+      status && (status.textContent = `Error loading posts (retry ${attempt}/5)…`);
+      if (attempt >= 5) {
+        toast("Could not load posts from backend.");
+        if (!POSTS.length) {
+          listContainer.innerHTML = `<li style="color:#f99">Failed to load posts. Check connection or Supabase policies.</li>`;
+        }
+        break;
+      }
+      await sleep(backoffDelay(attempt));
+    }
+  }
+
+  isLoadingPosts = false;
+}
+
+/* ====== 🔄 RENDER LIST + CONTROLS ====== */
+function normalize(s) { return (s || "").toString().toLowerCase(); }
+
+function filteredSortedPosts() {
+  const q = normalize($("#notes-search")?.value);
+  const mode = $("#notes-sort")?.value || "newest";
+  let arr = POSTS.slice();
+
+  if (q) {
+    arr = arr.filter(p =>
+      normalize(p.title).includes(q) ||
+      normalize(p.content).includes(q)
+    );
+  }
+
+  if (mode === "newest") arr.sort((a,b)=> new Date(b.created_at)-new Date(a.created_at));
+  else if (mode === "oldest") arr.sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
+  else if (mode === "title_asc") arr.sort((a,b)=> (a.title||"").localeCompare(b.title||""));
+  else if (mode === "title_desc") arr.sort((a,b)=> (b.title||"").localeCompare(a.title||""));
+
+  return arr;
+}
+
 function renderPostsList() {
-  listContainer.innerHTML = '';
-  posts.forEach((post, index) => {
-    const li = document.createElement('li');
-    li.innerHTML = `<a href="#" class="note-title" data-index="${index}">${post.title}</a>`;
-    listContainer.appendChild(li);
-  });
+  if (!listContainer) return;
+  const arr = filteredSortedPosts();
 
-  document.querySelectorAll('.note-title').forEach(note => {
-    note.addEventListener('click', e => {
+  listContainer.innerHTML = "";
+  if (!arr.length) {
+    listContainer.innerHTML = `<li><em>No posts found.</em></li>`;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  arr.forEach((post) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<a href="#" class="note-title" data-id="${post.id}">${escapeHtml(post.title || "Untitled")}</a>`;
+    frag.appendChild(li);
+  });
+  listContainer.appendChild(frag);
+
+  $$(".note-title", listContainer).forEach((a) => {
+    a.addEventListener("click", async (e) => {
       e.preventDefault();
-      currentIndex = parseInt(note.getAttribute('data-index'));
-      openTerminalPost(currentIndex);
+      const id = a.getAttribute("data-id");
+      const post = POSTS.find((p) => p.id === id);
+      if (post) openTerminalPost(post);
     });
   });
 }
 
-// ===== TYPEWRITER EFFECT =====
+/* ====== ⌨️ SEARCH/SORT EVENTS ====== */
+$("#notes-search")?.addEventListener("input", () => renderPostsList());
+$("#notes-sort")?.addEventListener("change", () => renderPostsList());
+
+/* ====== ⌨️ MODAL KEYBOARD UX ====== */
+document.addEventListener("keydown", (e) => {
+  if (modal.style.display === "flex") {
+    if (e.key === "Escape") closeModal();
+    if (e.key === "ArrowRight") navigatePost(1);
+    if (e.key === "ArrowLeft") navigatePost(-1);
+    if (e.ctrlKey && (e.key === "l" || e.key === "L")) {
+      // clear in-terminal output area
+      modalText.innerHTML = "";
+    }
+  }
+});
+function navigatePost(step) {
+  if (!CURRENT_POST || !POSTS.length) return;
+  const idx = POSTS.findIndex((p) => p.id === CURRENT_POST.id);
+  const next = (idx + step + POSTS.length) % POSTS.length;
+  openTerminalPost(POSTS[next]);
+}
+
+/* ====== 🖥️ TYPEWRITER EFFECT ====== */
 function typeWriter(text, callback) {
-  modalText.innerHTML = ''; // Clear previous text
+  modalText.innerHTML = "";
   let i = 0;
-  function type() {
+  (function loop() {
     if (i < text.length) {
       modalText.innerHTML += text.charAt(i);
       modalText.scrollTop = modalText.scrollHeight;
       i++;
-      setTimeout(type, typingSpeed);
-    } else if (callback) callback();
-  }
-  type();
+      setTimeout(loop, typingSpeed);
+    } else {
+      callback && callback();
+    }
+  })();
 }
 
-// ===== OPEN POST =====
-function openTerminalPost(index) {
-  modal.style.display = 'flex';
-  modalText.innerHTML = '';
-  typeWriter(posts[index].content);
-  terminalInput.value = '';
+/* ====== 📖 OPEN POST IN TERMINAL ====== */
+async function openTerminalPost(post) {
+  CURRENT_POST = post;
+  // Show modal
+  modal.style.display = "flex";
+  modal.setAttribute("aria-hidden", "false");
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-label", `Post: ${post.title || "Untitled"}`);
+
+  const head = `Post: ${post.title || "Untitled"}\nDate: ${formatDate(post.created_at)}\n${"-".repeat(40)}\n\n`;
+  const body = `${post.content || "(No content)"}\n\n---\nComments:\n`;
+  typeWriter(head + body, async () => {
+    await loadComments(post.id);
+  });
+
+  terminalInput.value = "";
   terminalInput.focus();
+  announce(`Opened post ${post.title || ""}`);
 }
 
-// ===== CLOSE MODAL =====
-closeBtn.addEventListener('click', () => modal.style.display = 'none');
-window.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+/* ====== ❌ CLOSE MODAL ====== */
+function closeModal() {
+  modal.style.display = "none";
+  modal.setAttribute("aria-hidden", "true");
+  announce("Closed post terminal");
+}
 
-// ===== KEYBOARD SHORTCUTS =====
-document.addEventListener('keydown', e => {
-  if (modal.style.display === 'flex') {
-    switch (e.key) {
-      case 'ArrowRight':
-        currentIndex = (currentIndex + 1) % posts.length;
-        openTerminalPost(currentIndex);
-        break;
-      case 'ArrowLeft':
-        currentIndex = (currentIndex - 1 + posts.length) % posts.length;
-        openTerminalPost(currentIndex);
-        break;
-      case 'Escape':
-        modal.style.display = 'none';
-        break;
-      case 'l':
-      case 'L':
-        if (e.ctrlKey) modalText.innerHTML = '';
-        break;
+closeBtn?.addEventListener("click", closeModal);
+window.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+
+/* ====== 💬 COMMENTS ====== */
+async function loadComments(postId) {
+  // serve from cache first (if exists)
+  const cached = COMMENTS_CACHE.get(postId);
+  if (cached && cached.length) {
+    appendComments(cached);
+  }
+
+  // then fetch fresh
+  let attempt = 0;
+  while (attempt < 4) {
+    try {
+      const { data, error } = await sb
+        .from("comments")
+        .select("*")
+        .eq("post_id", postId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+
+      COMMENTS_CACHE.set(postId, data || []);
+      // Clear previous comment render section (only if we didn't just show cached)
+      if (!cached) {
+        modalText.innerHTML += "";
+      }
+      // Rebuild comments view (simple append for now)
+      // To avoid duplicate lines when cached existed, we can refresh:
+      rebuildCommentsView(postId);
+      break;
+    } catch (err) {
+      attempt++;
+      console.error("loadComments error:", err?.message || err);
+      if (attempt >= 4) {
+        modalText.innerHTML += `\n[!] Failed to load comments.\n`;
+      } else {
+        await sleep(backoffDelay(attempt));
+      }
     }
   }
-});
 
-// ===== HANDLE COMMENT INPUT =====
-terminalInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    const comment = terminalInput.value.trim();
-    if (!comment) return;
-    const time = new Date().toLocaleString();
-    const commentLine = document.createElement('div');
-    commentLine.classList.add('comment-line');
-    commentLine.innerHTML = `> ${comment} <span class="comment-time">(${time})</span>`;
-    modalText.appendChild(commentLine);
-    modalText.scrollTop = modalText.scrollHeight;
-    terminalInput.value = '';
+  modalText.scrollTop = modalText.scrollHeight;
+}
 
-    // remove comment after 8 seconds
-    setTimeout(() => commentLine.remove(), 8000);
+function appendComments(list) {
+  if (!list?.length) {
+    modalText.innerHTML += "\n(No comments yet)";
+    return;
   }
-});
+  list.forEach((c) => {
+    modalText.innerHTML += `\n> ${escapeHtml(c.comment)} (${formatDate(c.created_at)})`;
+  });
+}
 
-// ===== FULLSCREEN TOGGLE =====
-function toggleFullscreen() {
-  if (!isFullscreen) {
-    modal.classList.add('fullscreen');
-    isFullscreen = true;
+function rebuildCommentsView(postId) {
+  // Strategy: remove everything after the last "---\nComments:\n"
+  // Then append comments anew.
+  const html = modalText.innerHTML;
+  const marker = "---<br>Comments:";
+  if (html.includes(marker)) {
+    const idx = html.lastIndexOf(marker);
+    modalText.innerHTML = html.slice(0, idx + marker.length);
+  }
+  const list = COMMENTS_CACHE.get(postId) || [];
+  if (!list.length) {
+    modalText.innerHTML += "<br>(No comments yet)";
   } else {
-    modal.classList.remove('fullscreen');
-    isFullscreen = false;
+    list.forEach((c) => {
+      modalText.innerHTML += `<br>&gt; ${escapeHtml(c.comment)} (${escapeHtml(formatDate(c.created_at))})`;
+    });
+  }
+  modalText.scrollTop = modalText.scrollHeight;
+}
+
+/* ====== 📴 OFFLINE QUEUE FOR COMMENTS ====== */
+function readCommentQueue() {
+  try {
+    return JSON.parse(localStorage.getItem(COMMENT_QUEUE_KEY) || "[]");
+  } catch { return []; }
+}
+function writeCommentQueue(q) {
+  try { localStorage.setItem(COMMENT_QUEUE_KEY, JSON.stringify(q)); } catch {}
+}
+async function flushCommentQueue() {
+  const q = readCommentQueue();
+  if (!q.length) return;
+  for (let i = 0; i < q.length; i++) {
+    const item = q[i];
+    try {
+      const { error } = await sb.from("comments").insert([{ post_id: item.post_id, comment: item.comment }]);
+      if (error) throw error;
+      q.splice(i, 1); i--;
+      writeCommentQueue(q);
+      // Update cache so the UI reflects it
+      const list = COMMENTS_CACHE.get(item.post_id) || [];
+      list.push({ post_id: item.post_id, comment: item.comment, created_at: new Date().toISOString() });
+      COMMENTS_CACHE.set(item.post_id, list);
+      if (CURRENT_POST && CURRENT_POST.id === item.post_id) rebuildCommentsView(item.post_id);
+    } catch (err) {
+      // keep it in queue, try later
+      console.warn("flushCommentQueue failed, will retry later:", err?.message || err);
+      break;
+    }
   }
 }
-fullscreenBtn.addEventListener('click', toggleFullscreen);
+window.addEventListener("online", flushCommentQueue);
 
-// ===== DRAG TERMINAL =====
-header.addEventListener('mousedown', e => {
+/* ====== ⌨️ COMMENT INPUT HANDLER ====== */
+terminalInput?.addEventListener("keydown", async (e) => {
+  if (e.key !== "Enter") return;
+  const comment = terminalInput.value.trim();
+  if (!comment || !CURRENT_POST) return;
+
+  // optimistic UI
+  const local = document.createElement("div");
+  local.className = "comment-line";
+  local.textContent = `> ${comment}`;
+  modalText.appendChild(local);
+  modalText.scrollTop = modalText.scrollHeight;
+  terminalInput.value = "";
+
+  // try send
+  try {
+    const { error } = await sb.from("comments").insert([{ post_id: CURRENT_POST.id, comment }]);
+    if (error) throw error;
+
+    // Update in-memory cache
+    const list = COMMENTS_CACHE.get(CURRENT_POST.id) || [];
+    list.push({ post_id: CURRENT_POST.id, comment, created_at: new Date().toISOString() });
+    COMMENTS_CACHE.set(CURRENT_POST.id, list);
+    // Paint as success (color is set by your CSS .comment-line)
+  } catch (err) {
+    // Queue offline
+    const q = readCommentQueue();
+    q.push({ post_id: CURRENT_POST.id, comment });
+    writeCommentQueue(q);
+    local.style.color = "#ff9";
+    local.textContent = `> ${comment}  [queued offline]`;
+    toast("Comment saved offline and will sync automatically.");
+  }
+});
+
+/* ====== ⛶ FULLSCREEN TOGGLE ====== */
+fullscreenBtn?.addEventListener("click", () => {
+  isFullscreen = !isFullscreen;
+  modal.classList.toggle("fullscreen", isFullscreen);
+});
+
+/* ====== 🖱️ DRAGGABLE MODAL ====== */
+header?.addEventListener("mousedown", (e) => {
   if (isFullscreen) return;
   isDragging = true;
   dragOffsetX = e.clientX - modal.offsetLeft;
   dragOffsetY = e.clientY - modal.offsetTop;
 });
-document.addEventListener('mousemove', e => {
+document.addEventListener("mousemove", (e) => {
   if (isDragging) {
     modal.style.left = `${e.clientX - dragOffsetX}px`;
     modal.style.top = `${e.clientY - dragOffsetY}px`;
   }
 });
-document.addEventListener('mouseup', () => { isDragging = false; });
+document.addEventListener("mouseup", () => { isDragging = false; });
 
-// ===== RESIZE TERMINAL =====
-resizeHandle.addEventListener('mousedown', e => {
+/* ====== ↘️ RESIZE HANDLE ====== */
+resizeHandle?.addEventListener("mousedown", (e) => {
   e.preventDefault();
-  document.addEventListener('mousemove', resizeMouseMove);
-  document.addEventListener('mouseup', stopResize);
+  document.addEventListener("mousemove", resizeMouseMove);
+  document.addEventListener("mouseup", stopResize);
 });
-
 function resizeMouseMove(e) {
   const minWidth = 300;
   const minHeight = 200;
   let newWidth = e.clientX - modal.offsetLeft;
   let newHeight = e.clientY - modal.offsetTop;
-  if (newWidth > minWidth) modal.style.width = newWidth + 'px';
-  if (newHeight > minHeight) modal.style.height = newHeight + 'px';
+  if (newWidth > minWidth) modal.style.width = newWidth + "px";
+  if (newHeight > minHeight) modal.style.height = newHeight + "px";
 }
 function stopResize() {
-  document.removeEventListener('mousemove', resizeMouseMove);
-  document.removeEventListener('mouseup', stopResize);
+  document.removeEventListener("mousemove", resizeMouseMove);
+  document.removeEventListener("mouseup", stopResize);
 }
 
-// ===== INIT =====
-renderPostsList();
+/* ====== 🔄 REALTIME UPDATES ====== */
+function setupRealtime() {
+  // Posts
+  sb.channel("rt-posts")
+    .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, (payload) => {
+      if (payload.eventType === "INSERT") {
+        POSTS.unshift(payload.new);
+        cachePosts(POSTS);
+        renderPostsList();
+        toast("New post published");
+        announce("New post published");
+      }
+      if (payload.eventType === "UPDATE") {
+        const i = POSTS.findIndex((p) => p.id === payload.new.id);
+        if (i >= 0) POSTS[i] = payload.new;
+        cachePosts(POSTS);
+        renderPostsList();
+        if (CURRENT_POST && CURRENT_POST.id === payload.new.id) {
+          CURRENT_POST = payload.new;
+          openTerminalPost(CURRENT_POST);
+        }
+        toast("Post updated");
+      }
+      if (payload.eventType === "DELETE") {
+        POSTS = POSTS.filter((p) => p.id !== payload.old.id);
+        cachePosts(POSTS);
+        renderPostsList();
+        if (CURRENT_POST && CURRENT_POST.id === payload.old.id) closeModal();
+        toast("Post removed");
+      }
+    })
+    .subscribe();
 
+  // Comments
+  sb.channel("rt-comments")
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "comments" }, (payload) => {
+      const c = payload.new;
+      const list = COMMENTS_CACHE.get(c.post_id) || [];
+      list.push(c);
+      COMMENTS_CACHE.set(c.post_id, list);
+      if (CURRENT_POST && CURRENT_POST.id === c.post_id) {
+        // append line to terminal
+        modalText.innerHTML += `\n> ${escapeHtml(c.comment)} (${formatDate(c.created_at)})`;
+        modalText.scrollTop = modalText.scrollHeight;
+      }
+    })
+    .subscribe();
+}
+
+/* ====== 🧪 SAFETY CHECKS ====== */
+function verifyCriticalElements() {
+  let ok = true;
+  if (!modal) { console.warn("Missing #note-modal"); ok = false; }
+  if (!modalText) { console.warn("Missing #modal-text"); ok=false; }
+  if (!listContainer) { console.warn("Missing .notes-list"); ok=false; }
+  if (!terminalInput) { console.warn("Missing .terminal-input"); ok=false; }
+  if (!ok) toast("Some UI elements are missing from the DOM.");
+  return ok;
+}
+
+/* ====== 🚀 INIT ====== */
+(async function init() {
+  if (!verifyCriticalElements()) return;
+  try {
+    await fetchPosts({ useCache: true });
+    await flushCommentQueue();
+    setupRealtime();
+  } catch (err) {
+    console.error("Init error:", err?.message || err);
+  }
+
+  // keyboard: open first post quickly with "Enter" when list focused
+  listContainer?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const a = listContainer.querySelector(".note-title");
+      if (a) a.click();
+    }
+  });
+
+  // helpful hints
+  announce("Posts ready");
+})();
 
   </script>
 </body>
