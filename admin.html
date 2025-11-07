@@ -1,0 +1,1442 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin Panel — Portfolio (Supabase)</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- App Styles -->
+  <link rel="stylesheet" href="admin.css" />
+
+  <!-- Vendor (loaded before admin.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- Terminal Splash -->
+  <div id="terminal-splash" aria-hidden="true">
+    <pre id="terminal-text"></pre>
+  </div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar" aria-label="Admin sidebar navigation">
+    <div class="logo">Admin Panel</div>
+    <div class="env tiny">
+      URL: <span id="envUrl" class="muted">—</span><br>
+      Project: <span id="envProject" class="muted">—</span>
+    </div>
+
+    <nav class="nav" id="navLinks">
+      <a href="#" class="active" data-tab="dashboard"><span class="dot"></span>Dashboard</a>
+      <a href="#" data-tab="posts"><span class="dot"></span>Posts</a>
+      <a href="#" data-tab="projects"><span class="dot"></span>Projects</a>
+      <a href="#" data-tab="tools"><span class="dot"></span>Tools</a>
+      <a href="#" data-tab="messages"><span class="dot"></span>Messages</a>
+      <a href="#" data-tab="users"><span class="dot"></span>Users</a>
+      <a href="#" data-tab="storage"><span class="dot"></span>Storage</a>
+      <a href="#" data-tab="analytics"><span class="dot"></span>Analytics</a>
+      <a href="#" data-tab="logs"><span class="dot"></span>Activity Log</a>
+      <a href="#" data-tab="health"><span class="dot"></span>System Health</a>
+      <a href="#" data-tab="settings"><span class="dot"></span>Settings</a>
+      <a href="#" data-tab="shortcuts"><span class="dot"></span>Shortcuts</a>
+      <a href="#" data-tab="about"><span class="dot"></span>About</a>
+    </nav>
+
+    <div class="bottom">
+      <div class="tiny muted" id="sessionUser">Signed in as: –</div>
+      <a href="#" id="logoutBtn" class="logout">Logout</a>
+    </div>
+  </aside>
+
+  <!-- Topbar -->
+  <header class="topbar" role="banner">
+    <button id="menuToggle" class="menu-btn" aria-label="Toggle menu">☰ <span class="tiny">Menu</span></button>
+    <div class="row" style="align-items:center;gap:12px">
+      <span class="badge" id="connBadge">Supabase: Unknown</span>
+      <span class="tiny">Local time: <span id="localTime">—</span></span>
+    </div>
+    <div class="tiny">
+      Press <span class="kbd">/</span> to search, <span class="kbd">g</span>+<span class="kbd">p</span> → Posts
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="main" id="mainArea" tabindex="-1" aria-live="polite">
+
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="tab-content" aria-labelledby="tab-dashboard">
+      <h1 id="tab-dashboard">Dashboard Overview</h1>
+
+      <div class="card">
+        <div class="row">
+          <div style="flex:2; min-width:300px">
+            <h3>Visitors (Last 7 Days)</h3>
+            <canvas id="visitorChart" height="170" aria-label="Visitor analytics"></canvas>
+          </div>
+          <div class="card" style="flex:1; min-width:260px">
+            <h3>Quick Stats</h3>
+            <div class="row">
+              <div class="card stat">
+                <div class="tiny muted">Posts</div>
+                <div class="stat-num" id="statPosts">–</div>
+              </div>
+              <div class="card stat">
+                <div class="tiny muted">Messages</div>
+                <div class="stat-num" id="statMessages">–</div>
+              </div>
+            </div>
+            <div class="row" style="margin-top:10px">
+              <div class="card stat">
+                <div class="tiny muted">Projects</div>
+                <div class="stat-num" id="statProjects">–</div>
+              </div>
+              <div class="card stat">
+                <div class="tiny muted">Tools</div>
+                <div class="stat-num" id="statTools">–</div>
+              </div>
+            </div>
+            <div class="tiny" style="margin-top:10px">Last Sync: <span id="lastSync">–</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h3>Quick Actions</h3>
+          <div class="row">
+            <button class="btn" id="qaAddPost">Add Post</button>
+            <button class="btn" id="qaAddProject">Add Project</button>
+            <button class="btn" id="qaAddTool">Add Tool</button>
+          </div>
+          <p class="tiny muted" style="margin-top:6px">
+            Tip: <span class="kbd">N</span> to create a post. <span class="kbd">g</span>+<span class="kbd">m</span> → Messages
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>Recent Messages</h3>
+          <ul id="recentMessages" class="list-plain"></ul>
+          <p class="tiny muted">Only last 8 shown. See <strong>Messages</strong> tab for more.</p>
+        </div>
+
+        <div class="card">
+          <h3>Realtime Events</h3>
+          <div id="realtimeLog" class="log-box tiny" aria-live="polite"></div>
+        </div>
+
+        <div class="card">
+          <h3>Environment</h3>
+          <p class="tiny">URL: <code id="envUrlDash">—</code></p>
+          <p class="tiny">Project Ref: <code id="envRefDash">—</code></p>
+          <p class="tiny">Auth: <span class="pill" id="authStatus">—</span></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- POSTS -->
+    <section id="posts" class="tab-content hidden" aria-labelledby="tab-posts">
+      <h1 id="tab-posts">Manage Posts</h1>
+
+      <div class="toolbar">
+        <button class="btn" id="addPostBtn">+ Add Post</button>
+        <input type="text" id="postSearch" placeholder="Search posts (title, tags, category) — /" aria-label="Search posts">
+        <select id="postSort" aria-label="Sort posts">
+          <option value="date_desc">Newest</option>
+          <option value="date_asc">Oldest</option>
+          <option value="title">Title</option>
+          <option value="category">Category</option>
+        </select>
+        <button class="btn secondary" id="exportPostsBtn">Export</button>
+        <label class="btn ghost small" for="importPostsFile">Import JSON</label>
+        <input id="importPostsFile" type="file" accept=".json" class="visually-hidden" />
+        <button class="btn ghost small" id="bulkDeletePosts">Bulk Delete</button>
+      </div>
+
+      <!-- Post Form -->
+      <div class="popup" id="postForm" aria-labelledby="postFormTitle" role="dialog" aria-modal="true">
+        <h3 id="postFormTitle">Add New Post</h3>
+        <input type="hidden" id="postId" />
+        <label>Title</label><input id="postTitle" placeholder="Post title" required>
+        <div class="row">
+          <div>
+            <label>Category</label><input id="postCategory" placeholder="Category">
+          </div>
+          <div>
+            <label>Tags (comma separated)</label><input id="postTags" placeholder="tag1,tag2">
+          </div>
+        </div>
+        <label>Content</label><textarea id="postContent" rows="6" placeholder="Write your post..."></textarea>
+        <div class="row">
+          <div>
+            <label>Image URL</label><input id="postImage" placeholder="https://...">
+            <div class="tiny muted">Or upload below in <strong>Storage</strong> and paste the URL.</div>
+          </div>
+          <div>
+            <label>Date</label><input id="postDate" type="datetime-local">
+          </div>
+        </div>
+        <img id="postPreview" class="preview" alt="Post image preview" />
+        <div class="form-actions">
+          <button id="savePostBtn" class="btn">Save</button>
+          <button id="cancelPostBtn" class="btn secondary">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Posts Table -->
+      <table id="postsTable" aria-describedby="postsHelp">
+        <caption class="visually-hidden">Posts table</caption>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="toggleAllPosts" aria-label="Select all posts"></th>
+            <th>Title</th>
+            <th>Category</th>
+            <th>Tags</th>
+            <th>Date</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <!-- Pagination -->
+      <div class="row row-justify">
+        <div class="tiny muted">Rows:
+          <select id="postsPageSize">
+            <option>5</option>
+            <option selected>10</option>
+            <option>20</option>
+            <option>50</option>
+          </select>
+        </div>
+        <div class="pager">
+          <button class="btn secondary small" id="postsPrev">Prev</button>
+          <span class="tiny" id="postsPageInfo">Page 1/1</span>
+          <button class="btn secondary small" id="postsNext">Next</button>
+        </div>
+      </div>
+      <p id="postsHelp" class="tiny muted">Tip: Arrow keys navigate, <span class="kbd">Enter</span> opens edit.</p>
+    </section>
+
+    <!-- PROJECTS -->
+    <section id="projects" class="tab-content hidden" aria-labelledby="tab-projects">
+      <h1 id="tab-projects">Projects</h1>
+
+      <div class="toolbar">
+        <button id="addProjectBtn" class="btn">+ Add Project</button>
+        <input id="projectSearch" placeholder="Search projects">
+        <select id="projectSort">
+          <option value="created_desc">Newest</option>
+          <option value="created_asc">Oldest</option>
+          <option value="title">Title</option>
+          <option value="order">Custom order</option>
+        </select>
+        <button class="btn secondary" id="exportProjectsBtn">Export</button>
+        <label class="btn ghost small" for="importProjectsFile">Import JSON</label>
+        <input id="importProjectsFile" type="file" accept=".json" class="visually-hidden">
+      </div>
+
+      <div class="popup" id="projectForm" role="dialog" aria-modal="true" aria-labelledby="projectFormTitle">
+        <h3 id="projectFormTitle">Add Project</h3>
+        <input type="hidden" id="projectId">
+        <label>Title</label><input id="projectTitle" placeholder="Project title">
+        <label>Description</label><textarea id="projectDesc" rows="3"></textarea>
+        <div class="row">
+          <div><label>Image URL</label><input id="projectImage" placeholder="https://..."></div>
+          <div><label>Sort Order</label><input id="projectOrder" type="number" value="0"></div>
+        </div>
+        <div class="row">
+          <div><label>GitHub Link</label><input id="projectGithub" placeholder="https://github.com/..."></div>
+          <div><label>Live Link</label><input id="projectLive" placeholder="https://..."></div>
+        </div>
+        <label>Tags (comma)</label><input id="projectTags" placeholder="react, node">
+        <div class="form-actions">
+          <button id="saveProjectBtn" class="btn">Save</button>
+          <button id="cancelProjectBtn" class="btn secondary">Cancel</button>
+        </div>
+      </div>
+
+      <table id="projectsTable">
+        <thead><tr><th>Title</th><th>Tags</th><th>Order</th><th>Links</th><th>Actions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- TOOLS -->
+    <section id="tools" class="tab-content hidden" aria-labelledby="tab-tools">
+      <h1 id="tab-tools">Tools</h1>
+
+      <div class="toolbar">
+        <button id="addToolBtn" class="btn">+ Add Tool</button>
+        <input id="toolSearch" placeholder="Search tools">
+        <select id="toolSort">
+          <option value="created_desc">Newest</option>
+          <option value="created_asc">Oldest</option>
+          <option value="name">Name</option>
+          <option value="order">Custom order</option>
+        </select>
+        <button class="btn secondary" id="exportToolsBtn">Export</button>
+        <label class="btn ghost small" for="importToolsFile">Import JSON</label>
+        <input id="importToolsFile" type="file" accept=".json" class="visually-hidden">
+      </div>
+
+      <div class="popup" id="toolForm" role="dialog" aria-modal="true" aria-labelledby="toolFormTitle">
+        <h3 id="toolFormTitle">Add Tool</h3>
+        <input type="hidden" id="toolId">
+        <label>Name</label><input id="toolName" placeholder="Name">
+        <label>Description</label><textarea id="toolDesc" rows="3" placeholder="Description"></textarea>
+        <div class="row">
+          <div><label>Icon URL</label><input id="toolIcon" placeholder="https://..."></div>
+          <div><label>Sort Order</label><input id="toolOrder" type="number" value="0"></div>
+        </div>
+        <label>Docs/Link</label><input id="toolLink" placeholder="https://...">
+        <div class="form-actions">
+          <button id="saveToolBtn" class="btn">Save</button>
+          <button id="cancelToolBtn" class="btn secondary">Cancel</button>
+        </div>
+      </div>
+
+      <table id="toolsTable">
+        <thead><tr><th>Name</th><th>Order</th><th>Link</th><th>Actions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <!-- MESSAGES -->
+    <section id="messages" class="tab-content hidden" aria-labelledby="tab-messages">
+      <h1 id="tab-messages">Messages</h1>
+
+      <div class="toolbar">
+        <button class="btn ghost small" id="refreshMessages">Refresh</button>
+        <button class="btn danger small" id="clearAllMessages">Delete All</button>
+        <span class="tiny muted">Only admins can read/delete messages (RLS).</span>
+      </div>
+
+      <div class="card">
+        <table id="messagesTable">
+          <thead><tr><th>Name</th><th>Email</th><th>Message</th><th>Received</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- USERS (Admin Management) -->
+    <section id="users" class="tab-content hidden" aria-labelledby="tab-users">
+      <h1 id="tab-users">Users</h1>
+      <div class="toolbar">
+        <input id="userSearch" placeholder="Search users (email)">
+        <button class="btn secondary" id="inviteUserBtn">Invite User</button>
+        <button class="btn ghost small" id="exportUsersBtn">Export</button>
+      </div>
+
+      <div class="card">
+        <table id="usersTable">
+          <thead><tr><th>Email</th><th>User ID</th><th>Admin</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <!-- Invite/Role Modal -->
+      <div class="popup" id="userForm" role="dialog" aria-modal="true" aria-labelledby="userFormTitle">
+        <h3 id="userFormTitle">Invite User</h3>
+        <label>Email</label><input id="userEmail" type="email" placeholder="name@example.com">
+        <label><input id="userIsAdmin" type="checkbox"> Make admin</label>
+        <div class="form-actions">
+          <button id="saveUserBtn" class="btn">Save</button>
+          <button id="cancelUserBtn" class="btn secondary">Cancel</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STORAGE -->
+    <section id="storage" class="tab-content hidden" aria-labelledby="tab-storage">
+      <h1 id="tab-storage">Storage</h1>
+
+      <div class="card">
+        <p class="tiny muted">Bucket: <span class="pill">portfolio-images</span>. Ensure public read policy exists.</p>
+        <div class="row" style="align-items:flex-end">
+          <div>
+            <label for="uploadFile">Upload image</label>
+            <input id="uploadFile" type="file" accept="image/*">
+          </div>
+          <div>
+            <label for="uploadPath">Path (optional)</label>
+            <input id="uploadPath" placeholder="uploads/my-image.jpg">
+          </div>
+          <div><button id="uploadBtn" class="btn">Upload</button></div>
+        </div>
+        <div class="tiny muted" style="margin-top:8px">
+          Public URL: <code id="uploadUrl">—</code>
+        </div>
+      </div>
+    </section>
+
+    <!-- ANALYTICS (extra chart space) -->
+    <section id="analytics" class="tab-content hidden" aria-labelledby="tab-analytics">
+      <h1 id="tab-analytics">Analytics</h1>
+      <div class="grid">
+        <div class="card"><h3>Traffic</h3><canvas id="chartTraffic" height="160"></canvas></div>
+        <div class="card"><h3>Top Posts</h3><canvas id="chartTopPosts" height="160"></canvas></div>
+        <div class="card"><h3>Signups</h3><canvas id="chartSignups" height="160"></canvas></div>
+      </div>
+    </section>
+
+    <!-- ACTIVITY LOG -->
+    <section id="logs" class="tab-content hidden" aria-labelledby="tab-logs">
+      <h1 id="tab-logs">Activity Log</h1>
+      <div class="card">
+        <div id="activityLog" class="log-box" aria-live="polite"></div>
+      </div>
+      <div class="row">
+        <button id="exportLogBtn" class="btn secondary">Export Log</button>
+        <button id="clearLogBtn" class="btn danger">Clear Log</button>
+      </div>
+    </section>
+
+    <!-- SYSTEM HEALTH -->
+    <section id="health" class="tab-content hidden" aria-labelledby="tab-health">
+      <h1 id="tab-health">System Health</h1>
+      <div class="grid">
+        <div class="card">
+          <h3>API</h3>
+          <p>Status: <span class="pill" id="apiStatus">—</span></p>
+          <p>Latency: <span class="tiny" id="apiLatency">—</span></p>
+        </div>
+        <div class="card">
+          <h3>Database</h3>
+          <p>Status: <span class="pill" id="dbStatus">—</span></p>
+          <p>Tables: <span class="tiny" id="dbTables">—</span></p>
+        </div>
+        <div class="card">
+          <h3>Auth</h3>
+          <p>Status: <span class="pill" id="authHealth">—</span></p>
+          <p>User: <span class="tiny" id="healthUser">—</span></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="settings" class="tab-content hidden" aria-labelledby="tab-settings">
+      <h1 id="tab-settings">Settings</h1>
+      <div class="grid">
+        <div class="card">
+          <h3>Session</h3>
+          <p class="tiny">Current user: <span id="currentUserEmail">–</span></p>
+          <p class="tiny">User ID: <span id="currentUserId">–</span></p>
+          <p class="tiny">Admin: <span id="currentUserAdmin">–</span></p>
+          <div class="row" style="margin-top:8px">
+            <button class="btn secondary" id="refreshSession">Refresh Session</button>
+            <button class="btn danger" id="logoutBtn2">Logout</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Theme</h3>
+          <p class="tiny muted">Dark theme active. Light mode coming soon.</p>
+        </div>
+        <div class="card">
+          <h3>Policies</h3>
+          <p class="tiny muted">Public can read posts. Only admins manage posts/projects/tools & messages.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SHORTCUTS -->
+    <section id="shortcuts" class="tab-content hidden" aria-labelledby="tab-shortcuts">
+      <h1 id="tab-shortcuts">Keyboard Shortcuts</h1>
+      <div class="card">
+        <ul class="list-plain tiny">
+          <li><span class="kbd">/</span> Focus post search</li>
+          <li><span class="kbd">N</span> New post</li>
+          <li><span class="kbd">g</span> then <span class="kbd">p</span> → Posts</li>
+          <li><span class="kbd">g</span> then <span class="kbd">m</span> → Messages</li>
+          <li><span class="kbd">Esc</span> Close open form</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section id="about" class="tab-content hidden" aria-labelledby="tab-about">
+      <h1 id="tab-about">About</h1>
+      <div class="card">
+        <p>Static admin panel powered by <strong>Supabase</strong> for Auth, DB, Realtime and Storage.</p>
+        <ul class="tiny muted list-plain" style="margin-top:6px;line-height:1.8">
+          <li>Auth: email/password with admin flag in <code>public.profiles</code></li>
+          <li>Data: <code>posts</code>, <code>projects</code>, <code>tools</code>, <code>messages</code>, <code>profiles</code></li>
+          <li>Realtime: Postgres changes channels</li>
+          <li>Storage: <code>portfolio-images</code></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>Debug Console</h3>
+        <div id="debugConsole" class="log-box tiny"></div>
+        <div class="row" style="margin-top:8px">
+          <button id="copyDebugBtn" class="btn secondary">Copy Logs</button>
+          <button id="clearDebugBtn" class="btn danger">Clear</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Confirm Modal -->
+  <div class="modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="modal-box">
+      <h3 id="confirmTitle">Confirm Action</h3>
+      <p id="confirmMessage" class="tiny muted">Are you sure?</p>
+      <div class="form-actions right">
+        <button id="confirmNo" class="btn secondary">Cancel</button>
+        <button id="confirmYes" class="btn danger">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+<style>
+  /* ===============================
+   GLOBAL VARIABLES & RESET
+   =============================== */
+:root {
+  --bg: #070c1e;
+  --bg-2: #0d162f;
+  --card: #111d36;
+  --accent: #00aaff;
+  --accent-2: #0088ff;
+  --text: #e6f3ff;
+  --text-dim: #b8cce0;
+  --muted: #8ba2bd;
+  --border: rgba(255,255,255,0.08);
+  --danger: #ff5252;
+  --warning: #ffce5c;
+  --success: #1ad598;
+  --shadow: 0 12px 35px rgba(6,14,35,0.55);
+  --radius: 12px;
+  --glass: rgba(255,255,255,0.06);
+  --glass-2: rgba(255,255,255,0.08);
+  --scrollbar: rgba(255,255,255,0.12);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(180deg, var(--bg), var(--bg-2));
+  color: var(--text);
+  overflow: hidden;
+}
+
+/* ===============================
+   SIDEBAR
+   =============================== */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 250px;
+  background: rgba(10,20,40,0.92);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+  transition: transform 0.25s ease;
+}
+.sidebar.open { transform: translateX(0); }
+.logo {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--accent);
+  text-align: center;
+  margin-bottom: 6px;
+}
+.env {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.nav {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.nav::-webkit-scrollbar { width: 7px; }
+.nav::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 10px;
+}
+.nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  padding: 9px 12px;
+  margin-bottom: 5px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+.nav a:hover, .nav a.active {
+  background: var(--glass);
+  color: var(--accent);
+}
+.nav a .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--glass-2);
+}
+.nav a.active .dot { background: var(--accent); }
+.bottom {
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+}
+.logout {
+  display: block;
+  text-align: center;
+  background: linear-gradient(90deg,var(--accent),var(--accent-2));
+  color: #00131f;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 10px 0;
+  margin-top: 10px;
+  text-decoration: none;
+  transition: 0.2s;
+}
+.logout:hover { opacity: 0.85; }
+
+/* ===============================
+   TOPBAR
+   =============================== */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin-left: 250px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: linear-gradient(180deg,rgba(10,18,40,0.8),rgba(10,18,40,0.4));
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.badge {
+  background: rgba(0,170,255,0.15);
+  border: 1px solid rgba(0,170,255,0.3);
+  color: #bfe9ff;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.menu-btn {
+  display: none;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* ===============================
+   MAIN AREA
+   =============================== */
+.main {
+  margin-left: 250px;
+  padding: 20px 24px 60px;
+  height: calc(100% - 50px);
+  overflow-y: auto;
+}
+.tab-content.hidden { display: none; }
+h1 { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
+h3 { font-size: 16px; color: var(--accent); margin-bottom: 6px; }
+
+/* ===============================
+   CARDS & GRID
+   =============================== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(260px,1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+.card {
+  background: linear-gradient(180deg,var(--card),#0a152d);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+.stat-num {
+  font-size: 26px;
+  font-weight: 800;
+}
+.tiny { font-size: 12px; color: var(--muted); }
+.muted { color: var(--muted); }
+
+/* ===============================
+   TOOLBAR
+   =============================== */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+input, textarea, select {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 9px 10px;
+  font-family: inherit;
+  width: 100%;
+}
+input:focus, textarea:focus, select:focus {
+  outline: 1px solid rgba(0,170,255,0.5);
+}
+label { font-size: 13px; margin-top: 8px; display: block; }
+
+/* ===============================
+   BUTTONS
+   =============================== */
+.btn {
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #001d2b;
+  font-weight: 700;
+  padding: 9px 14px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.btn:hover { opacity: 0.9; }
+.btn.secondary {
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+}
+.btn.danger { background: var(--danger); color: white; }
+.btn.ghost {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text);
+}
+.btn.small {
+  font-size: 12px;
+  padding: 6px 9px;
+  border-radius: 6px;
+}
+
+/* ===============================
+   TABLES
+   =============================== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 14px;
+}
+th, td {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  color: #bfe9ff;
+  font-weight: 600;
+  font-size: 13px;
+}
+td.actions .btn { margin-right: 6px; }
+.preview { max-width: 180px; margin-top: 8px; border-radius: 8px; }
+
+/* ===============================
+   POPUPS (FORMS)
+   =============================== */
+.popup {
+  display: none;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-top: 12px;
+}
+.popup.show {
+  display: block;
+  animation: fadeIn 0.25s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.form-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.form-actions.right { justify-content: flex-end; }
+
+/* ===============================
+   PAGINATION
+   =============================== */
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.row-justify { justify-content: space-between; }
+.pager { display: flex; align-items: center; gap: 8px; }
+
+/* ===============================
+   PILL & KBD
+   =============================== */
+.pill {
+  display: inline-block;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+.kbd {
+  display: inline-block;
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+/* ===============================
+   TOAST
+   =============================== */
+.toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  background: #001522;
+  color: #bfe9ff;
+  border: 1px solid var(--border);
+  padding: 10px 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: 0.25s ease;
+  z-index: 999;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ===============================
+   MODALS
+   =============================== */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal.show { display: flex; }
+.modal-box {
+  background: linear-gradient(180deg,var(--card),#08182b);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  width: min(640px,92vw);
+}
+
+/* ===============================
+   TERMINAL SPLASH
+   =============================== */
+#terminal-splash {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  color: #00ff00;
+  font-family: monospace;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 30px;
+  z-index: 2000;
+  transition: opacity 1s ease;
+}
+#terminal-text::after {
+  content: "|";
+  animation: blink 0.8s steps(1) infinite;
+}
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* ===============================
+   LOGS / DEBUG / ACTIVITY
+   =============================== */
+.log-box {
+  border: 1px dashed var(--border);
+  background: rgba(255,255,255,0.03);
+  padding: 8px;
+  border-radius: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-family: monospace;
+  white-space: pre-wrap;
+}
+.log-box::-webkit-scrollbar {
+  width: 6px;
+}
+.log-box::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 6px;
+}
+
+/* ===============================
+   LISTS
+   =============================== */
+.list-plain {
+  list-style: none;
+  padding-left: 0;
+}
+.list-plain li {
+  padding: 4px 0;
+}
+
+/* ===============================
+   RESPONSIVE
+   =============================== */
+@media (max-width: 900px) {
+  .sidebar { width: 220px; }
+  .topbar, .main { margin-left: 220px; }
+}
+@media (max-width: 720px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .menu-btn { display: inline-flex; }
+  .topbar, .main { margin-left: 0; }
+}
+
+</style>
+<script>
+  /* =======================================================
+   ADMIN PANEL JAVASCRIPT — FULL FEATURE VERSION
+   Powered by Supabase (v2) | Author: Owais / BlinkBit Labs
+   ======================================================= */
+
+// ============================
+// CONFIGURATION
+// ============================
+const SUPABASE_URL = "https://mfeofsburcwgqftyowtm.supabase.co";
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mZW9mc2J1cmN3Z3FmdHlvd3RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNjEyOTcsImV4cCI6MjA3NzgzNzI5N30.kd-RweKyDiE1ED4Rq8DcMADDM15_Bsd2PjLZxw5g2D0";
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Utility aliases
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const nowLocal = () => new Date().toLocaleString();
+
+function toast(msg, type = "info") {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.style.borderColor =
+    type === "error"
+      ? "#ff5c5c"
+      : type === "success"
+      ? "#16d39a"
+      : "rgba(255,255,255,.08)";
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2500);
+}
+
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"']/g, (c) => {
+    return {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    }[c];
+  });
+}
+
+// ============================
+// TERMINAL SPLASH
+// ============================
+(function splash() {
+  const lines = [
+    "[ADMIN] Initializing secure dashboard...",
+    "[ADMIN] Loading modules...",
+    "[ADMIN] Connecting to Supabase...",
+    "[ADMIN] Ready.",
+  ];
+  const splash = $("#terminal-splash");
+  const text = $("#terminal-text");
+  let i = 0,
+    j = 0;
+  function type() {
+    if (i >= lines.length) return;
+    const line = lines[i];
+    if (j < line.length) {
+      text.textContent += line[j];
+      j++;
+      setTimeout(type, 25 + Math.random() * 35);
+    } else {
+      text.textContent += "\n";
+      i++;
+      j = 0;
+      setTimeout(type, 150);
+    }
+  }
+  window.addEventListener("load", async () => {
+    type();
+    await sleep(2300);
+    splash.style.opacity = 0;
+    setTimeout(() => splash.remove(), 900);
+  });
+})();
+
+// ============================
+// SIDEBAR NAVIGATION
+// ============================
+const tabs = $$(".nav a");
+const panes = $$(".tab-content");
+const sidebar = $("#sidebar");
+tabs.forEach((tab) => {
+  tab.addEventListener("click", (e) => {
+    e.preventDefault();
+    tabs.forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    const target = tab.dataset.tab;
+    panes.forEach((p) => p.classList.toggle("hidden", p.id !== target));
+    $("#mainArea").scrollTop = 0;
+    logActivity(`Switched to tab: ${target}`);
+  });
+});
+
+$("#menuToggle").addEventListener("click", () =>
+  sidebar.classList.toggle("open")
+);
+
+// ============================
+// AUTH / SESSION
+// ============================
+async function loadSession() {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) {
+    location.href = "login.html";
+    return;
+  }
+  const user = data.session.user;
+  $("#sessionUser").textContent = `Signed in as: ${user.email}`;
+  $("#currentUserEmail").textContent = user.email;
+  $("#currentUserId").textContent = user.id;
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .maybeSingle();
+  const isAdmin = profile?.is_admin ? "true" : "false";
+  $("#currentUserAdmin").textContent = isAdmin;
+  $("#authStatus").textContent = "Active";
+  $("#healthUser").textContent = user.email;
+}
+loadSession();
+
+$("#logoutBtn, #logoutBtn2").forEach
+  ? $("#logoutBtn, #logoutBtn2")
+  : null;
+$$('#logoutBtn, #logoutBtn2').forEach((btn) =>
+  btn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    await sb.auth.signOut();
+    location.href = "login.html";
+  })
+);
+
+// ============================
+// TOPBAR CLOCK
+// ============================
+function tickClock() {
+  $("#localTime").textContent = new Date().toLocaleTimeString();
+  requestAnimationFrame(() => setTimeout(tickClock, 1000));
+}
+tickClock();
+
+// ============================
+// CHARTS
+// ============================
+(function initCharts() {
+  const ctx = $("#visitorChart").getContext("2d");
+  const data = {
+    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    datasets: [
+      {
+        label: "Visitors",
+        data: [130, 170, 110, 250, 200, 300, 220],
+        borderColor: "#00aaff",
+        backgroundColor: "rgba(0,170,255,0.2)",
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3,
+      },
+    ],
+  };
+  new Chart(ctx, {
+    type: "line",
+    data,
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } },
+    },
+  });
+})();
+
+// ============================
+// GLOBAL STATE
+// ============================
+let posts = [],
+  projects = [],
+  tools = [],
+  users = [],
+  messages = [];
+let postsPage = 1,
+  postsPageSize = 10;
+
+// ============================
+// ACTIVITY LOG
+// ============================
+function logActivity(msg) {
+  const log = $("#activityLog");
+  const time = new Date().toLocaleTimeString();
+  log.textContent += `[${time}] ${msg}\n`;
+  log.scrollTop = log.scrollHeight;
+}
+
+// ============================
+// POSTS MODULE
+// ============================
+const postTbody = $("#postsTable tbody");
+const postForm = $("#postForm");
+const postId = $("#postId");
+const postTitle = $("#postTitle");
+const postCategory = $("#postCategory");
+const postTags = $("#postTags");
+const postContent = $("#postContent");
+const postImage = $("#postImage");
+const postDate = $("#postDate");
+const postPreview = $("#postPreview");
+
+function openPostForm(p = null) {
+  postForm.classList.add("show");
+  if (p) {
+    postId.value = p.id;
+    postTitle.value = p.title;
+    postCategory.value = p.category;
+    postTags.value = (p.tags || []).join(",");
+    postContent.value = p.content;
+    postImage.value = p.image;
+    postDate.value = new Date(p.date).toISOString().slice(0, 16);
+    postPreview.src = p.image;
+  } else {
+    postId.value = "";
+    postTitle.value = "";
+    postCategory.value = "";
+    postTags.value = "";
+    postContent.value = "";
+    postImage.value = "";
+    postDate.value = new Date().toISOString().slice(0, 16);
+    postPreview.src = "";
+  }
+}
+function closePostForm() {
+  postForm.classList.remove("show");
+}
+
+$("#addPostBtn").addEventListener("click", () => openPostForm());
+$("#cancelPostBtn").addEventListener("click", closePostForm);
+$("#qaAddPost").addEventListener("click", () => {
+  tabs.find((a) => a.dataset.tab === "posts").click();
+  openPostForm();
+});
+$("#postImage").addEventListener(
+  "input",
+  () => (postPreview.src = postImage.value)
+);
+
+async function fetchPosts() {
+  const { data, error } = await sb
+    .from("posts")
+    .select("*")
+    .order("date", { ascending: false });
+  if (error) {
+    toast("Error loading posts", "error");
+    return;
+  }
+  posts = data || [];
+  renderPosts();
+  $("#statPosts").textContent = posts.length;
+}
+
+function postsFilteredSorted() {
+  const q = ($("#postSearch").value || "").toLowerCase();
+  const arr = posts.filter(
+    (p) =>
+      p.title.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q) ||
+      (p.tags || []).join(",").toLowerCase().includes(q)
+  );
+  const sort = $("#postSort").value;
+  arr.sort((a, b) => {
+    if (sort === "date_desc") return new Date(b.date) - new Date(a.date);
+    if (sort === "date_asc") return new Date(a.date) - new Date(b.date);
+    if (sort === "title") return a.title.localeCompare(b.title);
+    if (sort === "category") return a.category.localeCompare(b.category);
+    return 0;
+  });
+  return arr;
+}
+
+function renderPosts() {
+  const arr = postsFilteredSorted();
+  const total = arr.length;
+  const size = postsPageSize;
+  const totalPages = Math.max(1, Math.ceil(total / size));
+  if (postsPage > totalPages) postsPage = totalPages;
+  const start = (postsPage - 1) * size;
+  const pageRows = arr.slice(start, start + size);
+  postTbody.innerHTML = "";
+  pageRows.forEach((p) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input type="checkbox" data-id="${p.id}"></td>
+      <td>${escapeHtml(p.title)}</td>
+      <td>${escapeHtml(p.category)}</td>
+      <td>${escapeHtml((p.tags || []).join(", "))}</td>
+      <td>${new Date(p.date).toLocaleString()}</td>
+      <td class="actions">
+        <button class="btn small" data-edit="${p.id}">Edit</button>
+        <button class="btn small danger" data-del="${p.id}">Delete</button>
+      </td>`;
+    postTbody.appendChild(tr);
+  });
+  $("#postsPageInfo").textContent = `Page ${postsPage}/${totalPages}`;
+}
+
+postTbody.addEventListener("click", async (e) => {
+  const id = e.target.dataset.edit || e.target.dataset.del;
+  if (!id) return;
+  if (e.target.dataset.edit) {
+    const p = posts.find((x) => x.id === id);
+    if (p) openPostForm(p);
+  }
+  if (e.target.dataset.del) {
+    confirmModal("Delete this post?", async () => {
+      const { error } = await sb.from("posts").delete().eq("id", id);
+      if (error) toast("Delete failed", "error");
+      else {
+        toast("Post deleted", "success");
+        fetchPosts();
+      }
+    });
+  }
+});
+
+$("#savePostBtn").addEventListener("click", async () => {
+  const id = postId.value || undefined;
+  const row = {
+    title: postTitle.value.trim(),
+    category: postCategory.value.trim(),
+    tags: postTags.value
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean),
+    content: postContent.value.trim(),
+    image: postImage.value.trim(),
+    date: new Date(postDate.value || new Date()).toISOString(),
+  };
+  if (!row.title) {
+    toast("Enter a title", "error");
+    return;
+  }
+  let error;
+  if (id) ({ error } = await sb.from("posts").update(row).eq("id", id));
+  else ({ error } = await sb.from("posts").insert([row]));
+  if (error) toast("Save failed: " + error.message, "error");
+  else {
+    toast("Post saved", "success");
+    closePostForm();
+    fetchPosts();
+  }
+});
+
+// Pagination & filters
+$("#postsPrev").addEventListener("click", () => {
+  postsPage = Math.max(1, postsPage - 1);
+  renderPosts();
+});
+$("#postsNext").addEventListener("click", () => {
+  const total = postsFilteredSorted().length;
+  const totalPages = Math.max(1, Math.ceil(total / postsPageSize));
+  postsPage = Math.min(totalPages, postsPage + 1);
+  renderPosts();
+});
+$("#postsPageSize").addEventListener("change", (e) => {
+  postsPageSize = parseInt(e.target.value) || 10;
+  postsPage = 1;
+  renderPosts();
+});
+$("#postSearch").addEventListener("input", () => {
+  postsPage = 1;
+  renderPosts();
+});
+$("#postSort").addEventListener("change", renderPosts);
+
+fetchPosts();
+
+// ============================
+// STORAGE UPLOAD
+// ============================
+$("#uploadBtn").addEventListener("click", async () => {
+  const file = $("#uploadFile").files[0];
+  if (!file) {
+    toast("Choose a file first", "error");
+    return;
+  }
+  const path =
+    $("#uploadPath").value.trim() || `uploads/${Date.now()}_${file.name}`;
+  const { error } = await sb.storage.from("portfolio-images").upload(path, file);
+  if (error) {
+    toast("Upload failed: " + error.message, "error");
+    return;
+  }
+  const { data } = sb.storage.from("portfolio-images").getPublicUrl(path);
+  $("#uploadUrl").textContent = data.publicUrl;
+  toast("Uploaded!", "success");
+});
+
+// ============================
+// CONFIRM MODAL
+// ============================
+function confirmModal(msg, onYes) {
+  const modal = $("#confirmModal");
+  $("#confirmMessage").textContent = msg;
+  modal.classList.add("show");
+  const yes = $("#confirmYes"),
+    no = $("#confirmNo");
+  const close = () => modal.classList.remove("show");
+  yes.onclick = async () => {
+    await onYes();
+    close();
+  };
+  no.onclick = close;
+}
+
+// ============================
+// DEBUG CONSOLE
+// ============================
+function debugLog(msg) {
+  const c = $("#debugConsole");
+  const t = new Date().toLocaleTimeString();
+  c.textContent += `[${t}] ${msg}\n`;
+  c.scrollTop = c.scrollHeight;
+}
+
+// ============================
+// HEALTH CHECK
+// ============================
+async function checkHealth() {
+  try {
+    const start = performance.now();
+    const { error } = await sb.from("posts").select("id").limit(1);
+    const ms = performance.now() - start;
+    $("#apiLatency").textContent = ms.toFixed(1) + "ms";
+    $("#apiStatus").textContent = error ? "❌ Error" : "✅ OK";
+    $("#dbStatus").textContent = "✅ Online";
+    $("#authHealth").textContent = "✅ Active";
+  } catch {
+    $("#apiStatus").textContent = "❌ Offline";
+  }
+}
+setInterval(checkHealth, 60000);
+checkHealth();
+
+// ============================
+// MOCK ANALYTICS
+// ============================
+(function analytics() {
+  const charts = [
+    { id: "chartTraffic", color: "#00aaff" },
+    { id: "chartTopPosts", color: "#16d39a" },
+    { id: "chartSignups", color: "#ffce5c" },
+  ];
+  charts.forEach((c) => {
+    const ctx = $("#" + c.id).getContext("2d");
+    new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        datasets: [
+          {
+            label: c.id,
+            data: Array.from({ length: 7 }, () => Math.floor(Math.random() * 200)),
+            backgroundColor: c.color,
+          },
+        ],
+      },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+    });
+  });
+})();
+
+// ============================
+// SHORTCUT KEYS
+// ============================
+document.addEventListener("keydown", (e) => {
+  if (e.key === "/") {
+    e.preventDefault();
+    $("#postSearch").focus();
+  }
+  if (e.key === "n" || e.key === "N") {
+    openPostForm();
+  }
+});
+
+// ============================
+// CLEANUP
+// ============================
+debugLog("✅ Admin panel loaded successfully.");
+toast("Admin ready", "success");
+logActivity("Admin panel initialized.");
+
+// =======================================================
+// END OF admin.js
+// =======================================================
+
+</script>
+</body>
+</html>

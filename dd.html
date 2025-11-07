@@ -1,0 +1,122 @@
+<!-- Professional Intro with Typing & Sound -->
+<div id="intro-loader">
+  <div class="intro-bg"></div>
+  <div class="intro-terminal">
+    <pre id="intro-text"></pre>
+  </div>
+  <button id="intro-skip" title="Skip intro (S)" aria-label="Skip intro (S)">Skip</button>
+
+  <!-- Audio assets -->
+  <audio id="typing-sound" preload="auto" src="YOUR_TYPING_SOUND_URL.mp3"></audio>
+  <audio id="complete-sound" preload="auto" src="YOUR_COMPLETE_SOUND_URL.mp3"></audio>
+</div>
+
+<style>
+  /* (Similar styling as previous, adjust as needed) */
+  #intro-loader { position: fixed; inset: 0; background: #0a0f16; display:flex; align-items:center; justify-content:center; z-index:99999; font-family:"JetBrains Mono",monospace;color:#9ad9ff; overflow:hidden; }
+  .intro-bg { position:absolute; inset:0; background:radial-gradient(circle at 30% 30%,#0c1624,#000); }
+  .intro-terminal { position:relative; z-index:2; background:#00111a; padding:20px; border-radius:8px; max-width:80vw; text-shadow:0 0 8px rgba(0,180,255,0.4); }
+  #intro-text { margin:0; white-space:pre-wrap; font-size:16px; line-height:1.4; }
+  #intro-skip { position:absolute; top:12px; right:12px; background:rgba(0,140,220,0.1); color:#9fe6ff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:13px; }
+  #intro-skip:focus { outline:2px solid rgba(0,160,255,0.4); }
+  /* fade-out when done */
+  #intro-loader.fade { animation:fadeOut 0.8s ease forwards; }
+  @keyframes fadeOut { to { opacity:0; pointer-events:none; } }
+  @media (max-width:480px){ #intro-text { font-size:14px; } }
+</style>
+
+<script>
+(function(){
+  const lines = [
+    "Initializing Security Environment…",
+    "Loading Intrusion Detection Modules…",
+    "Starting Network Defense Services…",
+    "Calibrating Threat Intelligence Feed…",
+    "System Integrity: Verified.",
+    "root@faiz:~# Access Granted",
+    "",
+    "WELCOME, FAIZ ELAHI"
+  ];
+
+  const TYPE_DELAY = 35;      // ms per char
+  const LINE_DELAY = 700;     // delay after each line
+  const END_DELAY = 1000;     // delay after last line before end sound
+
+  const textEl = document.getElementById("intro-text");
+  const loaderEl = document.getElementById("intro-loader");
+  const skipBtn = document.getElementById("intro-skip");
+  const soundTyping = document.getElementById("typing-sound");
+  const soundComplete = document.getElementById("complete-sound");
+
+  let stop = false;
+
+  // play typing sound (loop) once user interacts (to satisfy autoplay policy)
+  function enableTypingSound(){
+    soundTyping.loop = true;
+    soundTyping.volume = 0.3;
+    soundTyping.play().catch(()=>{});
+    window.removeEventListener('click', enableTypingSound);
+  }
+  window.addEventListener('click', enableTypingSound, { once: true });
+
+  function appendLine(text) {
+    const line = document.createElement("div");
+    textEl.appendChild(line);
+    return line;
+  }
+
+  function typeText(lineEl, text, delay) {
+    return new Promise(resolve=>{
+      let i=0;
+      function step(){
+        if(stop) return resolve();
+        if(i < text.length){
+          lineEl.textContent = text.substring(0, i+1);
+          i++;
+          setTimeout(step, delay);
+        } else {
+          resolve();
+        }
+      }
+      step();
+    });
+  }
+
+  async function runIntro(){
+    // Start typing (ensure typing sound is playing)
+    for(let i=0;i<lines.length;i++){
+      if(stop) break;
+      const el = appendLine();
+      await typeText(el, lines[i], TYPE_DELAY);
+      await new Promise(r => setTimeout(r, LINE_DELAY));
+    }
+    if(stop) return;
+    // stop typing sound
+    soundTyping.pause();
+    soundTyping.currentTime = 0;
+    // wait a bit
+    await new Promise(r => setTimeout(r, END_DELAY));
+    // play complete sound
+    soundComplete.volume = 0.5;
+    soundComplete.play().catch(()=>{});
+    // after complete sound, fade out loader
+    await new Promise(r => setTimeout(r, 800));
+    loaderEl.classList.add("fade");
+    setTimeout(()=>{ loaderEl.remove(); }, 900);
+  }
+
+  // skip functionality
+  function skipIntro(){
+    stop = true;
+    soundTyping.pause();
+    loaderEl.classList.add("fade");
+    setTimeout(()=>{ loaderEl.remove(); }, 400);
+  }
+  skipBtn.addEventListener("click", skipIntro);
+  window.addEventListener("keydown", (e) => { if(e.key === "s" || e.key === "S") skipIntro(); });
+
+  // start the sequence
+  runIntro();
+
+})();
+</script>

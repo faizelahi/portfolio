@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Admin Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#071029;--card:#0b1a2b;--accent:#00aaff;--muted:#98a2b3}
+    *{box-sizing:border-box} html,body{height:100%;margin:0;font-family:Inter,system-ui,sans-serif;background:linear-gradient(180deg,var(--bg),#020612);color:#e6f3ff}
+    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{width:100%;max-width:380px;background:linear-gradient(180deg,var(--card),#071226);border:1px solid rgba(255,255,255,.06);border-radius:14px;box-shadow:0 12px 40px rgba(2,6,23,.55);padding:24px}
+    h1{margin:0 0 10px;font-size:18px} p{margin:0 0 18px;color:var(--muted);font-size:13px}
+    label{display:block;margin:10px 0 6px;font-size:13px;color:#cfe9ff}
+    input{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:#e6f3ff}
+    button{width:100%;margin-top:12px;padding:10px 14px;border:none;border-radius:10px;background:linear-gradient(90deg,var(--accent),#0077cc);color:#002233;font-weight:700;cursor:pointer}
+    .error{margin-top:10px;color:#ff8a8a;font-size:12px;min-height:16px}
+    .tiny{margin-top:10px;color:#7aa4bd;font-size:12px;text-align:center}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <form class="card" id="loginForm">
+      <h1>Admin Login</h1>
+      <p>Sign in to access your dashboard.</p>
+      <label>Email</label>
+      <input id="email" type="email" placeholder="admin@yourdomain.com" required/>
+      <label>Password</label>
+      <input id="password" type="password" placeholder="••••••••" required/>
+      <button type="submit">Sign In</button>
+      <div class="error" id="err"></div>
+      <div class="tiny">Forgot password? Use Supabase Auth reset from dashboard.</div>
+    </form>
+  </div>
+
+<script>
+  // 🔧 Supabase init
+  const SUPABASE_URL = "https://mfeofsburcwgqftyowtm.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mZW9mc2J1cmN3Z3FmdHlvd3RtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNjEyOTcsImV4cCI6MjA3NzgzNzI5N30.kd-RweKyDiE1ED4Rq8DcMADDM15_Bsd2PjLZxw5g2D0";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // If already logged in, go straight to admin
+  sb.auth.getSession().then(({ data }) => { if (data.session) location.href = "admin.html"; });
+
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    const err = document.getElementById("err");
+    if (error) { err.textContent = error.message; return; }
+    err.textContent = "";
+    location.href = "admin.html";
+  });
+</script>
+</body>
+</html>

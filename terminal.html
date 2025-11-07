@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pro Blue Team Terminal</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/dracula.min.css">
+<style>
+/* Base Reset */
+* { box-sizing: border-box; margin:0; padding:0; font-family: monospace; }
+body { background:#0b0c1a; color:#bfe9ff; overflow-x:hidden; }
+
+/* Glass Card */
+.card.glass-tilt {
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(10px);
+  padding: 16px;
+  margin: 20px auto;
+  max-width: 400px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,170,255,0.2);
+  color: #bfe9ff;
+}
+.card.glass-tilt h3 { text-align: center; margin-bottom: 12px; }
+.notes-list { list-style:none; }
+.notes-list li { margin:8px 0; }
+.notes-list a { text-decoration:none; color:#00ffff; transition:0.2s; }
+.notes-list a:hover { color:#00aaff; }
+
+/* Terminal Modal */
+.terminal-modal {
+  display:none;
+  position: fixed;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  max-width: 90%;
+  max-height: 70%;
+  background: #000b16;
+  border-radius: 12px;
+  border: 1px solid rgba(0,170,255,0.2);
+  box-shadow: 0 8px 30px rgba(0,170,255,0.4);
+  z-index: 1000;
+  display:flex;
+  flex-direction: column;
+  overflow:hidden;
+  resize: both;
+}
+
+/* Terminal Header */
+.terminal-header {
+  padding: 10px 16px;
+  background: linear-gradient(90deg, rgba(0,170,255,0.1), transparent);
+  display:flex;
+  justify-content: space-between;
+  align-items:center;
+  cursor: move;
+  user-select:none;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.terminal-header span { display:flex; gap:10px; }
+.terminal-header .close, .terminal-header .fullscreen-btn {
+  cursor:pointer; font-size:18px; font-weight:bold; color:#bfe9ff;
+}
+.terminal-header .close:hover, .terminal-header .fullscreen-btn:hover { color:#00ffff; }
+
+/* Terminal Body */
+.terminal-body {
+  flex:1;
+  display:flex;
+  flex-direction: column;
+  padding:12px;
+  background:#000b16;
+  overflow-y:auto;
+  line-height:1.5;
+  position:relative;
+  white-space:pre-wrap;
+}
+#modal-text { text-align:left; }
+.cursor { color:#00ffff; font-weight:bold; animation: blink 1s infinite; }
+@keyframes blink { 0%,50%,100%{opacity:1;} 25%,75%{opacity:0;} }
+
+/* Comments / fading messages */
+.comment-line {
+  color:#00ffff;
+  margin-top:6px;
+  font-size:13px;
+  opacity:1;
+  transition: opacity 1s;
+}
+.comment-time { color:#6b7a8a; font-size:11px; margin-left:4px; }
+
+/* Fullscreen */
+.terminal-modal.fullscreen {
+  top:0 !important;
+  left:0 !important;
+  transform:none !important;
+  width:100% !important;
+  height:100% !important;
+  border-radius:0 !important;
+}
+
+/* Input line */
+.terminal-input { color:#bfe9ff; display:flex; align-items:center; }
+.terminal-input span { margin-right:5px; }
+.terminal-input input { flex:1; background:transparent; border:none; color:#bfe9ff; outline:none; font-family:monospace; }
+
+/* Scrollbar */
+.terminal-body::-webkit-scrollbar { width:6px; }
+.terminal-body::-webkit-scrollbar-thumb { background: rgba(0,170,255,0.4); border-radius:3px; }
+.terminal-body::-webkit-scrollbar-track { background:transparent; }
+
+</style>
+</head>
+<body>
+
+<div class="card glass-tilt" id="quick-notes">
+  <h3>My Posts</h3>
+  <ul class="notes-list"></ul>
+</div>
+
+<div id="note-modal" class="terminal-modal">
+  <div class="terminal-header">
+    <span>💻 Pro Blue Team Terminal</span>
+    <span>
+      <span class="fullscreen-btn">⛶</span>
+      <span class="close">&times;</span>
+    </span>
+  </div>
+  <div class="terminal-body" id="terminal-body">
+    <div id="modal-text"></div>
+    <div class="cursor">█</div>
+    <div class="terminal-input">
+      <span>></span><input type="text" id="command-input" placeholder="Type command..."/>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/5.1.2/marked.min.js"></script>
+<script>
+const modal = document.getElementById('note-modal');
+const modalText = document.getElementById('modal-text');
+const closeBtn = document.querySelector('.terminal-modal .close');
+const listContainer = document.querySelector('.notes-list');
+const fullscreenBtn = document.querySelector('.fullscreen-btn');
+const terminalBody = document.getElementById('terminal-body');
+const commandInput = document.getElementById('command-input');
+
+let posts = [
+  { title:"Detection Rules Writeup", content:"### Detection Rules\n\nI write **detection rules**, build dashboards, and automate triage.\n\n```python\nprint('Hello Blue Team')\n```" },
+  { title:"Lab Exercises", content:"### Lab Exercises\n\nLabs I completed with step-by-step documentation and insights." },
+  { title:"Tools & Automation", content:"### Tools & Automation\n\nTools and scripts I developed for automation and monitoring." },
+  { title:"CTF Challenges", content:"### CTF Challenges\n\nCTFs and challenges I solved for practice." }
+];
+
+let currentIndex = 0;
+let typingSpeed = 15;
+let isFullscreen = false;
+
+// Render Posts List
+function renderPostsList(){
+  listContainer.innerHTML='';
+  posts.forEach((post,index)=>{
+    const li = document.createElement('li');
+    li.innerHTML=`<a href="#" class="note-title" data-index="${index}">${post.title}</a>`;
+    listContainer.appendChild(li);
+  });
+  document.querySelectorAll('.note-title').forEach(note=>{
+    note.addEventListener('click', e=>{
+      e.preventDefault();
+      currentIndex=parseInt(note.dataset.index);
+      openTerminalPost(currentIndex);
+    });
+  });
+}
+
+// Typewriter with Markdown
+function typeWriterMarkdown(text, callback){
+  modalText.innerHTML='';
+  let i=0;
+  function type(){
+    if(i<=text.length){
+      modalText.innerHTML = marked.parse(text.substring(0,i));
+      hljs.highlightAll();
+      terminalBody.scrollTop = terminalBody.scrollHeight;
+      i++;
+      setTimeout(type, typingSpeed);
+    } else if(callback) callback();
+  }
+  type();
+}
+
+// Add comment line
+function addComment(comment){
+  const div = document.createElement('div');
+  div.className='comment-line';
+  const time = new Date().toLocaleTimeString();
+  div.innerHTML=`${comment}<span class="comment-time">[${time}]</span>`;
+  terminalBody.appendChild(div);
+  terminalBody.scrollTop=terminalBody.scrollHeight;
+  setTimeout(()=>{div.style.opacity=0;},3000);
+  setTimeout(()=>{div.remove();},4000);
+}
+
+// Open post
+function openTerminalPost(index){
+  modal.style.display='flex';
+  typeWriterMarkdown(posts[index].content, ()=>{ addComment("Post loaded successfully"); });
+  commandInput.value='';
+}
+
+// Close modal
+closeBtn.addEventListener('click', ()=>modal.style.display='none');
+window.addEventListener('click', e=>{ if(e.target==modal) modal.style.display='none'; });
+
+// Keyboard navigation
+document.addEventListener('keydown', e=>{
+  if(modal.style.display==='flex'){
+    if(e.key==='ArrowRight'){ currentIndex=(currentIndex+1)%posts.length; openTerminalPost(currentIndex);}
+    else if(e.key==='ArrowLeft'){ currentIndex=(currentIndex-1+posts.length)%posts.length; openTerminalPost(currentIndex);}
+    else if(e.key==='Escape'){ modal.style.display='none';}
+    else if(e.key==='f'||e.key==='F'){ toggleFullscreen(); }
+  }
+});
+
+// Command input
+commandInput.addEventListener('keydown', e=>{
+  if(e.key==='Enter'){
+    const cmd = commandInput.value.trim();
+    if(cmd==='/next'){ currentIndex=(currentIndex+1)%posts.length; openTerminalPost(currentIndex); }
+    else if(cmd==='/prev'){ currentIndex=(currentIndex-1+posts.length)%posts.length; openTerminalPost(currentIndex); }
+    else if(cmd.startsWith('/comment ')){ addComment(cmd.substring(9)); }
+    else{ addComment(`Unknown command: ${cmd}`); }
+    commandInput.value='';
+  }
+});
+
+// Fullscreen toggle
+function toggleFullscreen(){
+  if(!isFullscreen){ modal.classList.add('fullscreen'); isFullscreen=true; }
+  else{ modal.classList.remove('fullscreen'); isFullscreen=false; }
+}
+fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+// Draggable
+let isDragging=false, offsetX, offsetY;
+const header = document.querySelector('.terminal-header');
+header.addEventListener('mousedown', e=>{ if(!isFullscreen){ isDragging=true; offsetX=e.clientX-modal.offsetLeft; offsetY=e.clientY-modal.offsetTop; }});
+document.addEventListener('mousemove', e=>{ if(isDragging){ modal.style.left=`${e.clientX-offsetX}px`; modal.style.top=`${e.clientY-offsetY}px`; }});
+document.addEventListener('mouseup', ()=>{ isDragging=false; });
+
+// Initialize
+renderPostsList();
+</script>
+
+</body>
+</html>

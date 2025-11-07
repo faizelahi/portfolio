@@ -1,0 +1,192 @@
+<!-- LINUX ROOT-TERMINAL LOADER — place at the very top of <body> -->
+<div id="linux-loader" role="status" aria-live="polite" aria-label="Loading terminal">
+  <div class="linux-wrap">
+    <div class="linux-terminal" aria-hidden="false">
+      <div class="linux-body" id="linux-body" tabindex="-1"></div>
+      <div class="linux-footer"><span id="linux-cursor" class="linux-cursor"></span></div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Full-screen overlay */
+  #linux-loader {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(1200px 600px at 10% 10%, rgba(0,0,0,0.95), #000 40%);
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Courier New", monospace;
+    color: #7CFF7C;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* subtle scanline overlay */
+  #linux-loader::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 100% 3px;
+    mix-blend-mode: overlay;
+    opacity: 0.06;
+  }
+
+  .linux-wrap {
+    width: min(960px, 94vw);
+    max-width: 960px;
+    margin: 12px;
+    padding: 14px;
+    border-radius: 8px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.8);
+    border: 1px solid rgba(255,255,255,0.03);
+    background: linear-gradient(180deg, rgba(10,10,10,0.94), rgba(0,0,0,0.9));
+  }
+
+  .linux-terminal {
+    background: #000;
+    border-radius: 6px;
+    overflow: hidden;
+    min-height: 180px;
+    box-shadow: inset 0 0 60px rgba(0,255,120,0.02);
+    border: 1px solid rgba(0,255,120,0.03);
+  }
+
+  .linux-body {
+    padding: 16px;
+    color: #7CFF7C;
+    font-size: 14.5px;
+    line-height: 1.35;
+    white-space: pre-wrap;
+    min-height: 150px;
+    max-height: 60vh;
+    overflow: hidden;
+  }
+
+  .linux-body .line { display:block; margin:4px 0; color: #8ff28f; text-shadow: 0 0 10px rgba(120,255,120,0.06); }
+
+  .linux-footer {
+    height: 42px;
+    display:flex;
+    align-items:center;
+    padding: 10px 16px;
+    border-top: 1px solid rgba(255,255,255,0.03);
+    background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(255,255,255,0.01));
+  }
+
+  .linux-cursor {
+    display:inline-block;
+    width:10px;
+    height:18px;
+    background: linear-gradient(180deg, #9fff9f, #5fdc5f);
+    border-radius:2px;
+    box-shadow: 0 0 12px rgba(120,255,120,0.5), inset 0 -2px 6px rgba(0,0,0,0.3);
+    animation: linux-blink 1s steps(2,start) infinite;
+    margin-left:6px;
+  }
+  @keyframes linux-blink { 50% { opacity: 0; } }
+
+  /* fade out */
+  #linux-loader.fade {
+    animation: loaderFade 420ms ease-in forwards;
+  }
+  @keyframes loaderFade { to { opacity: 0; transform: scale(0.997); pointer-events: none; } }
+
+  /* small screens */
+  @media (max-width:480px) {
+    .linux-body { font-size: 13px; min-height: 120px; }
+    .linux-wrap { padding: 10px; }
+  }
+</style>
+
+<script>
+(function(){
+  const lines = [
+    "Linux version 5.15.0-xyz (builder@local) (gcc version 11.2.0) #1 SMP PREEMPT",
+    "[    0.000000] BIOS-provided physical RAM map:",
+    "[    0.102345] PCI: Using configuration type 1",
+    "[    0.205678] usbcore: registered new interface driver usbfs",
+    "[    0.312000] random: crng init done",
+    "Mounting filesystems... [ OK ]",
+    "Starting udev... [ OK ]",
+    "Starting systemd-journald... [ OK ]",
+    "eth0: link is up, 1000Mbps, full-duplex",
+    "Network: acquired 192.168.1.42 via dhcp",
+    "root@faizelahi:~#"
+  ];
+
+  const TYPE_DELAY = 20;       // ms per character
+  const LINE_DELAY = 60;       // ms between lines
+  const SHOW_DURATION = 2000;  // overlay visible time (ms)
+
+  const body = document.getElementById('linux-body');
+  const loader = document.getElementById('linux-loader');
+  const cursor = document.getElementById('linux-cursor');
+
+  let stop = false;
+
+  function addLineEl() {
+    const el = document.createElement('div');
+    el.className = 'line';
+    body.appendChild(el);
+    body.scrollTop = body.scrollHeight;
+    return el;
+  }
+
+  function typeText(el, text, delay) {
+    return new Promise(resolve => {
+      let i = 0;
+      function step() {
+        if (stop) return resolve();
+        if (i < text.length) {
+          el.textContent += text.charAt(i);
+          i++;
+          body.scrollTop = body.scrollHeight;
+          setTimeout(step, delay);
+        } else {
+          resolve();
+        }
+      }
+      step();
+    });
+  }
+
+  async function runTyping() {
+    for (let i = 0; i < lines.length; i++) {
+      if (stop) break;
+      const el = addLineEl();
+      // prompts: normal boot lines get timestamp-like prefix, last line is root prompt already included
+      if (i < lines.length - 1) {
+        // small visual prefix to mimic kernel timestamps
+        el.textContent = ""; // prefix included in text above for boot lines
+        await typeText(el, lines[i], TYPE_DELAY);
+      } else {
+        // final prompt should appear quickly
+        await typeText(el, lines[i], TYPE_DELAY);
+      }
+      await new Promise(r => setTimeout(r, LINE_DELAY));
+    }
+  }
+
+  // start typing immediately
+  runTyping();
+
+  // hide after SHOW_DURATION (2s)
+  const hideT = setTimeout(() => {
+    stop = true;
+    loader.classList.add('fade');
+    loader.setAttribute('aria-hidden', 'true');
+    // remove after fade completes
+    setTimeout(() => { try { loader.remove(); } catch(e){} }, 480);
+  }, SHOW_DURATION);
+
+  window.addEventListener('beforeunload', () => {
+    clearTimeout(hideT);
+    stop = true;
+  });
+})();
+</script>
