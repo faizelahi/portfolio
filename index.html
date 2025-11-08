@@ -677,9 +677,9 @@ Custom Css */
 <div id="note-modal" class="terminal-modal">
   <div class="terminal-header">
     <span class="title">Terminal</span>
-  <!--  <div class="terminal-controls">
+    <div class="terminal-controls">
       <button class="fullscreen-btn">⛶</button>
-      <span class="close">&times;</span> -->
+      <span class="close">&times;</span>
     </div>
   </div>
 
@@ -1091,38 +1091,38 @@ async function fetchPosts(options = { useCache: true }) {
   isLoadingPosts = false;
 }
 
-/* ====== 🔄 RENDER LIST + CONTROLS ====== */
-function normalize(s) { return (s || "").toString().toLowerCase(); }
+// /* ====== 🔄 RENDER LIST + CONTROLS ====== */
+// function normalize(s) { return (s || "").toString().toLowerCase(); }
 
-function filteredSortedPosts() {
-  const q = normalize($("#notes-search")?.value);
-  const mode = $("#notes-sort")?.value || "newest";
-  let arr = POSTS.slice();
+// function filteredSortedPosts() {
+//   const q = normalize($("#notes-search")?.value);
+//   const mode = $("#notes-sort")?.value || "newest";
+//   let arr = POSTS.slice();
 
-  if (q) {
-    arr = arr.filter(p =>
-      normalize(p.title).includes(q) ||
-      normalize(p.content).includes(q)
-    );
-  }
+//   if (q) {
+//     arr = arr.filter(p =>
+//       normalize(p.title).includes(q) ||
+//       normalize(p.content).includes(q)
+//     );
+//   }
 
-  if (mode === "newest") arr.sort((a,b)=> new Date(b.created_at)-new Date(a.created_at));
-  else if (mode === "oldest") arr.sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
-  else if (mode === "title_asc") arr.sort((a,b)=> (a.title||"").localeCompare(b.title||""));
-  else if (mode === "title_desc") arr.sort((a,b)=> (b.title||"").localeCompare(a.title||""));
+//   if (mode === "newest") arr.sort((a,b)=> new Date(b.created_at)-new Date(a.created_at));
+//   else if (mode === "oldest") arr.sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
+//   else if (mode === "title_asc") arr.sort((a,b)=> (a.title||"").localeCompare(b.title||""));
+//   else if (mode === "title_desc") arr.sort((a,b)=> (b.title||"").localeCompare(a.title||""));
 
-  return arr;
-}
+//   return arr;
+// }
 
-function renderPostsList() {
-  if (!listContainer) return;
-  const arr = filteredSortedPosts();
+// function renderPostsList() {
+//   if (!listContainer) return;
+//   const arr = filteredSortedPosts();
 
-  listContainer.innerHTML = "";
-  if (!arr.length) {
-    listContainer.innerHTML = `<li><em>No posts found.</em></li>`;
-    return;
-  }
+//   listContainer.innerHTML = "";
+//   if (!arr.length) {
+//     listContainer.innerHTML = `<li><em>No posts found.</em></li>`;
+//     return;
+//   }
 
   const frag = document.createDocumentFragment();
   arr.forEach((post) => {
